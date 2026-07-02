@@ -1,0 +1,321 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  max-width: 900px;
+}
+
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+.title {
+  font-size: var(--t-2xl);
+}
+.subtitle {
+  color: var(--muted);
+  font-size: var(--t-sm);
+  margin-top: 2px;
+}
+
+/* ---- Overdue banner ---- */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: rgba(180, 86, 63, 0.1);
+  border: 1px solid rgba(180, 86, 63, 0.4);
+  color: var(--danger);
+  font-size: var(--t-sm);
+  font-weight: 500;
+}
+.bannerDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  flex: none;
+}
+
+/* ---- Groups ---- */
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.overdueLabel {
+  color: var(--danger);
+}
+.groupCount {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--muted);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 1px var(--sp-2);
+  min-width: 20px;
+  text-align: center;
+}
+.groupEmpty {
+  color: var(--muted);
+  font-size: var(--t-sm);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+/* ---- List + rows ---- */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+.row:last-child {
+  border-bottom: none;
+}
+.rowDone {
+  opacity: 0.62;
+}
+
+.check {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--brand-contrast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.check:hover:not(:disabled) {
+  border-color: var(--focus);
+}
+.check:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.checkOverdue {
+  border-color: var(--danger);
+}
+.checkDone {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.rowBody {
+  flex: 1;
+  min-width: 0;
+}
+.note {
+  color: var(--ink);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  line-height: 1.45;
+}
+.rowDone .note {
+  text-decoration: line-through;
+  text-decoration-color: var(--muted);
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin-top: var(--sp-1);
+}
+.due {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+.dueOverdue {
+  color: var(--danger);
+}
+.linked {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 2px var(--sp-2);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linkDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  flex: none;
+}
+
+.delete {
+  flex: none;
+  align-self: center;
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+.row:hover .delete,
+.delete:focus-visible {
+  opacity: 1;
+}
+.delete:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--surface-2);
+}
+.delete:disabled {
+  cursor: not-allowed;
+}
+
+/* ---- Empty state ---- */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  text-align: center;
+  padding: var(--sp-7) var(--sp-5);
+}
+.emptyTitle {
+  font-family: var(--font-display);
+  font-size: var(--t-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+.emptyBody {
+  color: var(--muted);
+  font-size: var(--t-sm);
+  max-width: 420px;
+}
+
+/* ---- Skeleton ---- */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, #e3e9f1 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s infinite;
+  border-radius: var(--r-lg);
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.formError {
+  background: rgba(180, 86, 63, 0.1);
+  border: 1px solid rgba(180, 86, 63, 0.4);
+  color: var(--danger);
+  border-radius: var(--r-md);
+  padding: var(--sp-3);
+  font-size: var(--t-sm);
+}
+
+/* ---- Create drawer ---- */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 16, 31, 0.5);
+  z-index: 40;
+  display: flex;
+  justify-content: flex-end;
+}
+.drawer {
+  width: min(440px, 100%);
+  height: 100%;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+  padding: var(--sp-6);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.drawerHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.drawerTitle {
+  font-size: var(--t-xl);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+}
+.noteInput {
+  width: 100%;
+  min-height: 96px;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--t-base);
+  line-height: 1.5;
+  resize: vertical;
+}
+.noteInput:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px rgba(47, 155, 216, 0.18);
+}
+.select {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--t-base);
+}
+.drawerActions {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: auto;
+  padding-top: var(--sp-4);
+}
+.drawerActions .btn {
+  flex: 1;
+}

@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Two-Factor Authentication{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="fas fa-shield-alt"></i> Two-Factor Authentication
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Account:</strong> {{ username }}
+                    </div>
+
+                    <p class="text-muted">
+                        Please enter the 6-digit code from your authenticator app to complete the login process.
+                    </p>
+
+                    <form method="POST">
+                        <div class="form-group">
+                            <label for="totp_code">Authentication Code</label>
+                            <input type="text" class="form-control form-control-lg text-center" 
+                                   id="totp_code" name="totp_code" 
+                                   placeholder="000000" maxlength="6" pattern="[0-9]{6}" 
+                                   autocomplete="off" required>
+                            <small class="form-text text-muted">Enter the 6-digit code from your authenticator app.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary btn-lg btn-block">
+                                <i class="fas fa-sign-in-alt"></i> Verify & Login
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr>
+
+                    <div class="text-center">
+                        <button type="button" class="btn btn-link" data-toggle="collapse" data-target="#backup-code-section">
+                            <i class="fas fa-key"></i> Use Backup Code Instead
+                        </button>
+                    </div>
+
+                    <div class="collapse" id="backup-code-section">
+                        <div class="card card-body mt-3">
+                            <h6><i class="fas fa-key"></i> Backup Code</h6>
+                            <p class="text-muted small">
+                                If you can't access your authenticator app, you can use one of your backup codes.
+                            </p>
+                            
+                            <form method="POST">
+                                <div class="form-group">
+                                    <label for="backup_code">Backup Code</label>
+                                    <input type="text" class="form-control" 
+                                           id="backup_code" name="backup_code" 
+                                           placeholder="Enter 8-character backup code" 
+                                           maxlength="8" pattern="[A-Z0-9]{8}" 
+                                           autocomplete="off">
+                                    <small class="form-text text-muted">Enter one of your 8-character backup codes.</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <button type="submit" class="btn btn-warning btn-block">
+                                        <i class="fas fa-unlock"></i> Use Backup Code
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="text-center">
+                        <a href="{{ url_for('login') }}" class="btn btn-link">
+                            <i class="fas fa-arrow-left"></i> Back to Login
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-focus on the code input
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('totp_code').focus();
+    
+    // Auto-advance to next input (for better UX)
+    const totpInput = document.getElementById('totp_code');
+    const backupInput = document.getElementById('backup_code');
+    
+    totpInput.addEventListener('input', function() {
+        if (this.value.length === 6) {
+            this.form.submit();
+        }
+    });
+    
+    backupInput.addEventListener('input', function() {
+        if (this.value.length === 8) {
+            this.form.submit();
+        }
+    });
+});
+
+// Prevent form submission if both fields are filled
+document.addEventListener('submit', function(e) {
+    const totpCode = document.getElementById('totp_code').value;
+    const backupCode = document.getElementById('backup_code').value;
+    
+    if (totpCode && backupCode) {
+        e.preventDefault();
+        alert('Please enter either a 2FA code OR a backup code, not both.');
+        return false;
+    }
+    
+    if (!totpCode && !backupCode) {
+        e.preventDefault();
+        alert('Please enter either a 2FA code or a backup code.');
+        return false;
+    }
+});
+</script>
+{% endblock %}
+
+
+

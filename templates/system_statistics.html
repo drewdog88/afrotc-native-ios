@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}System Statistics{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-chart-bar"></i> System Statistics</h1>
+        <a href="{{ url_for('admin') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Admin
+        </a>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-users fa-2x text-primary mb-2"></i>
+                    <h3 class="card-title">{{ stats.total_users }}</h3>
+                    <p class="card-text text-muted">Total Users</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-user-check fa-2x text-success mb-2"></i>
+                    <h3 class="card-title">{{ stats.active_users }}</h3>
+                    <p class="card-text text-muted">Active Users</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-user-shield fa-2x text-warning mb-2"></i>
+                    <h3 class="card-title">{{ stats.admin_users }}</h3>
+                    <p class="card-text text-muted">Admin Users</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-sign-in-alt fa-2x text-info mb-2"></i>
+                    <h3 class="card-title">{{ stats.recent_logins }}</h3>
+                    <p class="card-text text-muted">Logins (30 days)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-user-graduate fa-2x text-primary mb-2"></i>
+                    <h3 class="card-title">{{ stats.total_recruits }}</h3>
+                    <p class="card-text text-muted">Potential Recruits</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-star fa-2x text-success mb-2"></i>
+                    <h3 class="card-title">{{ stats.total_cadets }}</h3>
+                    <p class="card-text text-muted">Cadets</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-university fa-2x text-warning mb-2"></i>
+                    <h3 class="card-title">{{ stats.total_contacts }}</h3>
+                    <p class="card-text text-muted">University Contacts</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-calendar-alt fa-2x text-info mb-2"></i>
+                    <h3 class="card-title">{{ stats.total_events }}</h3>
+                    <p class="card-text text-muted">Recruitment Events</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history"></i> Recent Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if stats.recent_activities %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>User</th>
+                                        <th>Action</th>
+                                        <th>Details</th>
+                                        <th>IP Address</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for activity in stats.recent_activities %}
+                                    <tr>
+                                        <td>{{ activity.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td>{{ activity.username }}</td>
+                                        <td>
+                                            <span class="badge badge-{{ 'success' if activity.action == 'LOGIN' else 'info' if activity.action == 'CREATE' else 'warning' if activity.action == 'UPDATE' else 'danger' if activity.action == 'DELETE' else 'secondary' }}">
+                                                {{ activity.action }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if activity.table_name %}
+                                                {{ activity.table_name.title() }}
+                                                {% if activity.record_description %}
+                                                    - {{ activity.record_description }}
+                                                {% endif %}
+                                            {% else %}
+                                                {{ activity.record_description or 'N/A' }}
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ activity.ip_address or 'N/A' }}</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">No recent activity found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

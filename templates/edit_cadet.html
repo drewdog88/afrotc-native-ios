@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Cadet - AFROTC 695{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Edit Cadet</h1>
+            <a href="{{ url_for('cadet') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Cadets
+        </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+    
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="first_name" class="form-label">First Name *</label>
+                    <input type="text" class="form-control" id="first_name" name="first_name" value="{{ cadet.first_name }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="last_name" class="form-label">Last Name *</label>
+                    <input type="text" class="form-control" id="last_name" name="last_name" value="{{ cadet.last_name }}" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="email" class="form-label">Email *</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ cadet.email }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="phone" class="form-label">Phone</label>
+                    <input type="tel" class="form-control" id="phone" name="phone" value="{{ cadet.phone or '' }}">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="major" class="form-label">Major *</label>
+                    <input type="text" class="form-control" id="major" name="major" value="{{ cadet.major }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="graduation_year" class="form-label">Graduation Year *</label>
+                    <input type="number" class="form-control" id="graduation_year" name="graduation_year" min="2024" max="2030" value="{{ cadet.graduation_year }}" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="cadet_rank" class="form-label">Cadet Rank *</label>
+                    <select class="form-select" id="cadet_rank" name="cadet_rank" required>
+                        <option value="">Select rank...</option>
+                        <option value="C/4C" {% if cadet.cadet_rank == 'C/4C' %}selected{% endif %}>C/4C</option>
+                        <option value="C/3C" {% if cadet.cadet_rank == 'C/3C' %}selected{% endif %}>C/3C</option>
+                        <option value="C/2C" {% if cadet.cadet_rank == 'C/2C' %}selected{% endif %}>C/2C</option>
+                        <option value="C/1C" {% if cadet.cadet_rank == 'C/1C' %}selected{% endif %}>C/1C</option>
+                        <option value="C/Capt" {% if cadet.cadet_rank == 'C/Capt' %}selected{% endif %}>C/Capt</option>
+                        <option value="C/Maj" {% if cadet.cadet_rank == 'C/Maj' %}selected{% endif %}>C/Maj</option>
+                        <option value="C/Lt Col" {% if cadet.cadet_rank == 'C/Lt Col' %}selected{% endif %}>C/Lt Col</option>
+                        <option value="C/Col" {% if cadet.cadet_rank == 'C/Col' %}selected{% endif %}>C/Col</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="hometown" class="form-label">Hometown</label>
+                    <input type="text" class="form-control" id="hometown" name="hometown" value="{{ cadet.hometown or '' }}">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="officer_interest" class="form-label">Officer Interest</label>
+                    <select class="form-select" id="officer_interest" name="officer_interest">
+                        <option value="">Select interest...</option>
+                        <option value="Pilot" {% if cadet.officer_interest == 'Pilot' %}selected{% endif %}>Pilot</option>
+                        <option value="Navigator" {% if cadet.officer_interest == 'Navigator' %}selected{% endif %}>Navigator</option>
+                        <option value="RPA" {% if cadet.officer_interest == 'RPA' %}selected{% endif %}>RPA</option>
+                        <option value="Space" {% if cadet.officer_interest == 'Space' %}selected{% endif %}>Space</option>
+                        <option value="Missile" {% if cadet.officer_interest == 'Missile' %}selected{% endif %}>Missile</option>
+                        <option value="Non-Rated" {% if cadet.officer_interest == 'Non-Rated' %}selected{% endif %}>Non-Rated</option>
+                        <option value="Undecided" {% if cadet.officer_interest == 'Undecided' %}selected{% endif %}>Undecided</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="gpa" class="form-label">GPA</label>
+                    <input type="number" class="form-control" id="gpa" name="gpa" step="0.01" min="0" max="4.0" value="{{ cadet.gpa or '' }}">
+                </div>
+            </div>
+
+                               <div class="mb-3">
+                       <label for="status" class="form-label">Status *</label>
+                       <select class="form-select" id="status" name="status" required>
+                                                   <option value="active" {% if cadet.status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="inactive" {% if cadet.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                        <option value="graduated" {% if cadet.status == 'graduated' %}selected{% endif %}>Graduated</option>
+                       </select>
+                   </div>
+                   
+                   <div class="mb-3">
+                       <label for="unenrollment_date" class="form-label">Unenrollment Date (if applicable)</label>
+                                               <input type="date" class="form-control" id="unenrollment_date" name="unenrollment_date" value="{{ cadet.unenrollment_date_display or '' }}">
+                   </div>
+                   
+                   <div class="mb-3">
+                       <label for="unenrollment_reason" class="form-label">Unenrollment Reason (if applicable)</label>
+                       <textarea class="form-control" id="unenrollment_reason" name="unenrollment_reason" rows="3">{{ cadet.unenrollment_reason or '' }}</textarea>
+                   </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                        <a href="{{ url_for('cadet') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Update Cadet
+        </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 
+

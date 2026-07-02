@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Document - AFROTC 695{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-1">Edit Document</h1>
+        <p class="text-muted mb-0">Modify document details</p>
+    </div>
+    <div class="ms-auto">
+        <a href="{{ url_for('materials') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Materials
+        </a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-edit me-2"></i>
+                    Edit Document
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="title" class="form-label">Title *</label>
+                                <input type="text" class="form-control" id="title" name="title" value="{{ document.title }}" required>
+                                <div class="form-text">A descriptive title for the document</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="category" class="form-label">Category</label>
+                                <select class="form-select" id="category" name="category">
+                                    <option value="general" {% if document.category == 'general' %}selected{% endif %}>General</option>
+                                    <option value="presentations" {% if document.category == 'presentations' %}selected{% endif %}>Presentations</option>
+                                    <option value="forms" {% if document.category == 'forms' %}selected{% endif %}>Forms</option>
+                                    <option value="guides" {% if document.category == 'guides' %}selected{% endif %}>Guides</option>
+                                    <option value="brochures" {% if document.category == 'brochures' %}selected{% endif %}>Brochures</option>
+                                    <option value="applications" {% if document.category == 'applications' %}selected{% endif %}>Applications</option>
+                                    <option value="policies" {% if document.category == 'policies' %}selected{% endif %}>Policies</option>
+                                    <option value="training" {% if document.category == 'training' %}selected{% endif %}>Training Materials</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3">{{ document.description or '' }}</textarea>
+                        <div class="form-text">Optional description of the document contents</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="sort_order" class="form-label">Sort Order</label>
+                        <input type="number" class="form-control" id="sort_order" name="sort_order" value="{{ document.sort_order }}" min="0">
+                        <div class="form-text">Lower numbers appear first in the list</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {% if document.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                Active
+                            </label>
+                            <div class="form-text">Inactive documents will not be displayed to users</div>
+                        </div>
+                    </div>
+
+                    <!-- Current File Information -->
+                    <div class="mb-3">
+                        <label class="form-label">Current File</label>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <h6 class="mb-1">{{ document.original_filename }}</h6>
+                                        <small class="text-muted">
+                                            <span class="badge bg-secondary">{{ document.file_type|upper }}</span>
+                                            <span class="ms-2">{{ (document.file_size / 1024)|round(1) }} KB</span>
+                                        </small>
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <a href="{{ url_for('download_document', document_id=document.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-download"></i> Download
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text">To replace the file, delete this document and upload a new one</div>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('materials') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Update Document
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
+

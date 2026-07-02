@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - AFROTC 695{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Administration</h1>
+</div>
+
+<div class="row">
+    <!-- Activity Log Card -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-history fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Activity Log</h5>
+                <p class="card-text text-muted">View detailed logs of all user actions, including logins, data changes, and system activities.</p>
+                <a href="{{ url_for('activity_log') }}" class="btn btn-primary">
+                    <i class="fas fa-eye"></i> View Activity Log
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- User Management Card -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-3x text-success mb-3"></i>
+                <h5 class="card-title">User Management</h5>
+                <p class="card-text text-muted">Manage system users, roles, and permissions.</p>
+                <div class="mt-3">
+                    <p><strong>Total Users:</strong> {{ users|length }}</p>
+                    <p><strong>Active Users:</strong> {{ users|selectattr('is_active', 'equalto', true)|list|length }}</p>
+                </div>
+                <a href="{{ url_for('user_management') }}" class="btn btn-success">
+                    <i class="fas fa-cog"></i> Manage Users
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Statistics Card -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-bar fa-3x text-info mb-3"></i>
+                <h5 class="card-title">System Statistics</h5>
+                <p class="card-text text-muted">View system usage statistics and performance metrics.</p>
+                <div class="row text-center mt-3">
+                    <div class="col-6">
+                        <h6 class="text-primary">{{ users|length }}</h6>
+                        <small class="text-muted">Users</small>
+                    </div>
+                    <div class="col-6">
+                        <h6 class="text-success">{{ session.role.title() }}</h6>
+                        <small class="text-muted">Your Role</small>
+                    </div>
+                </div>
+                <a href="{{ url_for('system_statistics') }}" class="btn btn-info mt-3">
+                    <i class="fas fa-chart-line"></i> View Statistics
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Database Management Card -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-database fa-3x text-warning mb-3"></i>
+                <h5 class="card-title">Database Management</h5>
+                <p class="card-text text-muted">Create backups, restore data, and manage database operations.</p>
+                <div class="mt-3">
+                    <p><strong>Available Backups:</strong> {{ backup_files|length }}</p>
+                    <p><strong>Last Backup:</strong> {% if backup_files %}{{ backup_files[0].created.strftime('%Y-%m-%d %H:%M') }}{% else %}None{% endif %}</p>
+                </div>
+                <a href="{{ url_for('database_management') }}" class="btn btn-warning">
+                    <i class="fas fa-database"></i> Manage Database
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Code Coverage Card -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-code fa-3x text-info mb-3"></i>
+                <h5 class="card-title">Code Coverage</h5>
+                <p class="card-text text-muted">Analyze code coverage and test quality metrics.</p>
+                <a href="{{ url_for('code_coverage') }}" class="btn btn-info">
+                    <i class="fas fa-chart-line"></i> View Coverage
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quality Analysis Card -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-bar fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Quality Analysis</h5>
+                <p class="card-text text-muted">Comprehensive quality metrics combining coverage and security.</p>
+                <a href="{{ url_for('quality_analysis') }}" class="btn btn-primary">
+                    <i class="fas fa-chart-bar"></i> View Quality
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Security Scan Card -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-shield-alt fa-3x text-warning mb-3"></i>
+                <h5 class="card-title">Security Scan</h5>
+                <p class="card-text text-muted">Vulnerability analysis and security assessment.</p>
+                <a href="{{ url_for('vulnerability_scan') }}" class="btn btn-warning">
+                    <i class="fas fa-shield-alt"></i> Security Scan
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle"></i> System Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <h6 class="text-primary">{{ users|length }}</h6>
+                        <small class="text-muted">Total Users</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h6 class="text-success">{{ users|selectattr('is_active', 'equalto', true)|list|length }}</h6>
+                        <small class="text-muted">Active Users</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h6 class="text-info">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</h6>
+                        <small class="text-muted">Admin Users</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h6 class="text-warning">{{ session.role.title() }}</h6>
+                        <small class="text-muted">Your Role</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
+

@@ -1,0 +1,27 @@
+# Core Flask dependencies
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Werkzeug==2.3.7
+
+# Database dependencies
+psycopg2-binary==2.9.9
+# neondatabase package removed - using SQLAlchemy with psycopg2 instead
+
+# Vercel Blob storage (Python SDK)
+vercel-storage==0.1.0
+
+# Security and authentication
+bcrypt==4.0.1
+
+# Environment and configuration
+python-dotenv==1.1.1
+
+# Utilities
+schedule==1.2.0
+psutil==7.0.0
+
+# Development and debugging
+python-dateutil==2.8.2
+
+# PDF generation
+reportlab==4.0.4

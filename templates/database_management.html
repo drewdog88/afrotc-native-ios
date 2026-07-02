@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Database Management - AFROTC 695{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-database"></i> Database Management</h1>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('admin') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Admin</a>
+    </div>
+</div>
+
+<!-- Backup Section -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-save"></i> Create Backup</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Create a manual backup of the current database state.</p>
+                <form action="{{ url_for('backup') }}" method="POST" class="d-inline">
+    
+                    <button type="submit" class="btn btn-primary" onclick="return confirm('Create a new database backup?')">
+                        <i class="fas fa-download"></i> Create Backup
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-upload"></i> Restore Database</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Restore the database from a backup file.</p>
+                <a href="{{ url_for('restore') }}" class="btn btn-warning">
+                    <i class="fas fa-undo"></i> Restore from Backup
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backup Files Section -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-list"></i> Available Backups</h5>
+    </div>
+    <div class="card-body">
+        {% if backup_files %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Backup File</th>
+                        <th>Created</th>
+                        <th>Size</th>
+                        <th>Description</th>
+                        <th>User</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for backup in backup_files %}
+                    <tr>
+                        <td><code>{{ backup.filename }}</code></td>
+                        <td>{{ backup.created.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>{{ "%.1f"|format(backup.size / 1024) }} KB</td>
+                        <td>{{ backup.description }}</td>
+                        <td><span class="badge bg-primary">{{ backup.user }}</span></td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('download_backup', filename=backup.filename) }}" class="btn btn-outline-primary" title="Download">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                <button class="btn btn-outline-warning" title="Restore" onclick="confirmRestore('{{ backup.filename }}')">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" title="Delete" onclick="confirmDelete('{{ backup.filename }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-database fa-3x text-muted mb-3"></i>
+            <h5>No Backups Available</h5>
+            <p class="text-muted">Create your first backup to get started.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Database Information -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Database Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <strong>Database Type:</strong><br>
+                        <span class="text-muted">PostgreSQL (Neon)</span>
+                    </div>
+                    <div class="col-6">
+                        <strong>Backup Format:</strong><br>
+                        <span class="text-muted">JSON Export (.json)</span>
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-6">
+                        <strong>Storage Location:</strong><br>
+                        <span class="text-muted">Vercel Blob Storage</span>
+                    </div>
+                    <div class="col-6">
+                        <strong>Total Backups:</strong><br>
+                        <span class="text-muted">{{ backup_files|length }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-shield-alt"></i> Safety Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>PostgreSQL Backups:</strong> Backups are created using JSON export and stored in Vercel Blob storage for secure cloud access.
+                </div>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Cloud Storage:</strong> Backups are automatically uploaded to Vercel Blob storage and accessible from anywhere.
+                </div>
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Restore Warning:</strong> Restoring a database will overwrite all current data. Make sure to backup first.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmRestore(filename) {
+    if (confirm(`Are you sure you want to restore the database from "${filename}"?\n\nThis will overwrite all current data and cannot be undone!`)) {
+        // Redirect to restore page with filename
+        window.location.href = "{{ url_for('restore') }}?file=" + encodeURIComponent(filename);
+    }
+}
+
+function confirmDelete(filename) {
+    if (confirm(`Are you sure you want to delete the backup "${filename}"?\n\nThis action cannot be undone and the backup will be permanently removed.`)) {
+        // Create and submit a form to delete the backup
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = "{{ url_for('delete_backup', filename='PLACEHOLDER') }}".replace('PLACEHOLDER', filename);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %} 
+
+

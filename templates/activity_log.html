@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}Activity Log - AFROTC 695{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Activity Log</h1>
+    <div class="d-flex gap-2">
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="downloadDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-download"></i> Download
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="downloadDropdown">
+                <li><a class="dropdown-item" href="{{ url_for('download_activity_log', format='csv') }}">
+                    <i class="fas fa-file-csv"></i> CSV
+                </a></li>
+                <li><a class="dropdown-item" href="{{ url_for('download_activity_log', format='excel') }}">
+                    <i class="fas fa-file-excel"></i> Excel
+                </a></li>
+                <li><a class="dropdown-item" href="{{ url_for('download_activity_log', format='pdf') }}">
+                    <i class="fas fa-file-pdf"></i> PDF
+                </a></li>
+            </ul>
+        </div>
+        <a href="{{ url_for('admin') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Admin
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if activities.items %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>
+                            <a href="{{ url_for('activity_log', sort='created_at', order='asc' if sort_by == 'created_at' and order == 'desc' else 'desc') }}" class="text-decoration-none text-dark">
+                                Date & Time
+                                {% if sort_by == 'created_at' %}
+                                    <i class="fas fa-sort-{{ 'up' if order == 'asc' else 'down' }}"></i>
+                                {% else %}
+                                    <i class="fas fa-sort text-muted"></i>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th>
+                            <a href="{{ url_for('activity_log', sort='username', order='asc' if sort_by == 'username' and order == 'desc' else 'desc') }}" class="text-decoration-none text-dark">
+                                User
+                                {% if sort_by == 'username' %}
+                                    <i class="fas fa-sort-{{ 'up' if order == 'asc' else 'down' }}"></i>
+                                {% else %}
+                                    <i class="fas fa-sort text-muted"></i>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th>
+                            <a href="{{ url_for('activity_log', sort='action', order='asc' if sort_by == 'action' and order == 'desc' else 'desc') }}" class="text-decoration-none text-dark">
+                                Action
+                                {% if sort_by == 'action' %}
+                                    <i class="fas fa-sort-{{ 'up' if order == 'asc' else 'down' }}"></i>
+                                {% else %}
+                                    <i class="fas fa-sort text-muted"></i>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th>
+                            <a href="{{ url_for('activity_log', sort='table_name', order='asc' if sort_by == 'table_name' and order == 'desc' else 'desc') }}" class="text-decoration-none text-dark">
+                                Table
+                                {% if sort_by == 'table_name' %}
+                                    <i class="fas fa-sort-{{ 'up' if order == 'asc' else 'down' }}"></i>
+                                {% else %}
+                                    <i class="fas fa-sort text-muted"></i>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th>Record</th>
+                        <th>Details</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for activity in activities.items %}
+                    <tr>
+                        <td>
+                            <small class="text-muted" data-utc-date="{{ activity.created_at.isoformat() }}">{{ activity.created_at.strftime('%Y-%m-%d') }}</small><br>
+                            <strong data-utc-time="{{ activity.created_at.isoformat() }}">{{ activity.created_at.strftime('%H:%M:%S') }}</strong>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">{{ activity.username }}</span>
+                        </td>
+                        <td>
+                            {% if activity.action == 'CREATE' %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-plus"></i> Create
+                                </span>
+                            {% elif activity.action == 'UPDATE' %}
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-edit"></i> Update
+                                </span>
+                            {% elif activity.action == 'DELETE' %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-trash"></i> Delete
+                                </span>
+                            {% elif activity.action == 'LOGIN' %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-sign-in-alt"></i> Login
+                                </span>
+                            {% elif activity.action == 'LOGOUT' %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </span>
+                            {% elif activity.action == 'LOGIN_FAILED' %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-times"></i> Login Failed
+                                </span>
+                            {% elif activity.action == 'EXPORT' %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-download"></i> Export
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ activity.action }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if activity.table_name %}
+                                <span class="badge bg-light text-dark">{{ activity.table_name.replace('_', ' ').title() }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if activity.record_description %}
+                                <small>{{ activity.record_description }}</small>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if activity.details %}
+                                <small>{{ activity.details }}</small>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small class="text-muted">{{ activity.ip_address }}</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if activities.pages > 1 %}
+        <nav aria-label="Activity log pagination">
+            <ul class="pagination justify-content-center">
+                {% if activities.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('activity_log', page=activities.prev_num, sort=sort_by, order=order) }}">
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </a>
+                    </li>
+                {% endif %}
+
+                {% for page_num in activities.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                    {% if page_num %}
+                        {% if page_num != activities.page %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('activity_log', page=page_num, sort=sort_by, order=order) }}">{{ page_num }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if activities.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('activity_log', page=activities.next_num, sort=sort_by, order=order) }}">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        <!-- Summary -->
+        <div class="text-center mt-3">
+            <small class="text-muted">
+                Showing {{ activities.items|length }} of {{ activities.total }} activities
+                {% if activities.pages > 1 %}
+                    (Page {{ activities.page }} of {{ activities.pages }})
+                {% endif %}
+            </small>
+        </div>
+
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-history fa-3x text-muted mb-3"></i>
+            <h5>No Activity Logs Yet</h5>
+            <p class="text-muted">Activity logs will appear here as users interact with the system.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Activity Summary Cards -->
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-users fa-2x text-primary mb-2"></i>
+                <h5 class="card-title">{{ activities.total }}</h5>
+                <p class="card-text text-muted">Total Activities</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-user-clock fa-2x text-success mb-2"></i>
+                <h5 class="card-title">{{ activities.items|selectattr('action', 'equalto', 'LOGIN')|list|length }}</h5>
+                <p class="card-text text-muted">Logins Today</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-edit fa-2x text-warning mb-2"></i>
+                <h5 class="card-title">{{ activities.items|selectattr('action', 'equalto', 'UPDATE')|list|length }}</h5>
+                <p class="card-text text-muted">Updates Today</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-plus fa-2x text-info mb-2"></i>
+                <h5 class="card-title">{{ activities.items|selectattr('action', 'equalto', 'CREATE')|list|length }}</h5>
+                <p class="card-text text-muted">Creations Today</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Convert UTC times to local timezone
+document.addEventListener('DOMContentLoaded', function() {
+    // Convert date elements
+    document.querySelectorAll('[data-utc-date]').forEach(function(element) {
+        const utcDate = element.getAttribute('data-utc-date');
+        const localDate = new Date(utcDate);
+        element.textContent = localDate.toLocaleDateString();
+    });
+
+    // Convert time elements
+    document.querySelectorAll('[data-utc-time]').forEach(function(element) {
+        const utcTime = element.getAttribute('data-utc-time');
+        const localTime = new Date(utcTime);
+        element.textContent = localTime.toLocaleTimeString();
+    });
+});
+</script>
+{% endblock %}

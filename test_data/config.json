@@ -1,0 +1,23 @@
+{
+  "admin_user": {
+    "username": "admin",
+    "password": "admin123",
+    "role": "admin",
+    "email": "admin@test.com"
+  },
+  "test_user": {
+    "username": "testuser",
+    "password": "testpass123",
+    "role": "user",
+    "email": "testuser@test.com"
+  },
+  "test_endpoints": [
+    "/admin",
+    "/admin/quality-analysis",
+    "/admin/code-coverage",
+    "/admin/vulnerability-scan",
+    "/admin/user-management",
+    "/admin/system-statistics",
+    "/admin/database-management"
+  ]
+}
