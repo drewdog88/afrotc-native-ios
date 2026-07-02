@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Contact - AFROTC 695{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Edit High School Contact</h1>
+    <a href="{{ url_for('contacts') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Contacts
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+    
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="university_name" class="form-label">High School Name *</label>
+                    <input type="text" class="form-control" id="university_name" name="university_name" value="{{ contact.university_name }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="contact_name" class="form-label">Contact Name *</label>
+                    <input type="text" class="form-control" id="contact_name" name="contact_name" value="{{ contact.contact_name }}" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="contact_title" class="form-label">Contact Title</label>
+                    <input type="text" class="form-control" id="contact_title" name="contact_title" value="{{ contact.contact_title or '' }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="email" class="form-label">Email *</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ contact.email }}" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="phone" class="form-label">Phone</label>
+                    <input type="tel" class="form-control" id="phone" name="phone" value="{{ contact.phone or '' }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="address" class="form-label">Address</label>
+                    <textarea class="form-control" id="address" name="address" rows="2">{{ contact.address or '' }}</textarea>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    <label for="notes" class="form-label">Notes</label>
+                    <textarea class="form-control" id="notes" name="notes" rows="3">{{ contact.notes or '' }}</textarea>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {% if contact.is_active %}checked{% endif %}>
+                        <label class="form-check-label" for="is_active">
+                            Active Contact
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Update Contact
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 
+

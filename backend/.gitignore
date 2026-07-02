@@ -1,0 +1,18 @@
+# Environments & secrets
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+
+# Local DB & artifacts
+*.db
+*.sqlite3
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+dist/
+build/
+*.egg-info/

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Edit User - AFROTC 695{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Edit User</h1>
+    <a href="{{ url_for('user_management') }}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Users
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">User Information</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="first_name" class="form-label">First Name *</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" value="{{ user.first_name }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="last_name" class="form-label">Last Name *</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" value="{{ user.last_name }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" value="{{ user.username }}" readonly>
+                            <div class="form-text">Username cannot be changed</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">Email *</label>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="phone" class="form-label">Phone</label>
+                            <input type="tel" class="form-control" id="phone" name="phone" value="{{ user.phone or '' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="role" class="form-label">Role *</label>
+                            <select class="form-select" id="role" name="role" required>
+                                <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                                <option value="recruiter" {% if user.role == 'recruiter' %}selected{% endif %}>Recruiter</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Security Question</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="secret_question" class="form-label">Security Question *</label>
+                                <input type="text" class="form-control" id="secret_question" name="secret_question" value="{{ user.secret_question }}" required>
+                                <div class="form-text">
+                                    This question will be used for password recovery (e.g., "What was your first pet's name?")
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="secret_answer" class="form-label">Security Answer *</label>
+                                <input type="text" class="form-control" id="secret_answer" name="secret_answer" required>
+                                <div class="form-text">
+                                    Enter the answer to the security question. Your answer is case-insensitive.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Account Status</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {% if user.is_active %}checked{% endif %}>
+                                        <label class="form-check-label" for="is_active">
+                                            Active Account
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="is_locked" name="is_locked" {% if user.is_locked %}checked{% endif %}>
+                                        <label class="form-check-label" for="is_locked">
+                                            Lock Account
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="force_password_change" name="force_password_change" {% if user.force_password_change %}checked{% endif %}>
+                                        <label class="form-check-label" for="force_password_change">
+                                            Force Password Change
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Password Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Last Changed:</strong> {{ user.password_changed_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    {% if user.role == 'admin' %}
+                                        <p><strong>Expiry:</strong> <span class="text-success">Never Expires</span></p>
+                                    {% elif user.password_expires_at %}
+                                        <p><strong>Expires:</strong> {{ user.password_expires_at.strftime('%Y-%m-%d') }}</p>
+                                        <p><strong>Days Left:</strong> 
+                                            {% if user.is_password_expired %}
+                                                <span class="text-danger">Expired</span>
+                                            {% elif user.days_until_password_expiry <= 7 %}
+                                                <span class="text-warning">{{ user.days_until_password_expiry }} days</span>
+                                            {% else %}
+                                                <span class="text-success">{{ user.days_until_password_expiry }} days</span>
+                                            {% endif %}
+                                        </p>
+                                    {% else %}
+                                        <p><strong>Expiry:</strong> <span class="text-muted">Not set</span></p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{{ url_for('user_management') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Update User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
+
