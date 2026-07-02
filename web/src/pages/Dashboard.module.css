@@ -1,0 +1,224 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  max-width: 1180px;
+}
+
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+.title {
+  font-size: var(--t-2xl);
+}
+.subtitle {
+  color: var(--muted);
+  font-size: var(--t-sm);
+  margin-top: 2px;
+}
+
+/* ---- Stat tiles ---- */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-4);
+}
+.tile {
+  padding: var(--sp-4) var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.tileValue {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--t-3xl);
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.tileValue small {
+  font-size: var(--t-lg);
+  color: var(--muted);
+  font-weight: 500;
+}
+.tileDelta {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--sky);
+}
+
+/* ---- Two-column grid for the charts ---- */
+.grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: var(--sp-4);
+  align-items: stretch;
+}
+.panel {
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+}
+.panelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--sp-5);
+}
+.panelTitle {
+  font-size: var(--t-xl);
+}
+.panelNote {
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+
+/* ---- Ascent funnel ---- */
+.ascent {
+  display: flex;
+  flex-direction: column-reverse; /* base at bottom, apex on top */
+  gap: 4px;
+  flex: 1;
+  justify-content: flex-end;
+}
+.band {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: var(--r-md);
+  min-height: 46px;
+  padding: 0 var(--sp-4);
+  color: #fff;
+  overflow: hidden;
+  /* Visible track behind the proportional colored fill, so the metrics that sit
+     to the right of the fill have a defined surface in both light and dark. */
+  background: var(--surface-2);
+}
+.bandFill {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-md);
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.bandContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.bandLabel {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.bandName {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--t-base);
+  text-shadow: 0 1px 2px rgba(6, 16, 31, 0.28);
+}
+.bandBlurb {
+  font-size: 0.7rem;
+  opacity: 0.85;
+  text-shadow: 0 1px 2px rgba(6, 16, 31, 0.28);
+}
+/* Metrics ride on a small chip so they stay legible over either the fill or the
+   track, in both themes. */
+.bandMetrics {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 3px var(--sp-3);
+  box-shadow: var(--shadow-1);
+}
+.bandCount {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--t-lg);
+  color: var(--ink);
+}
+.bandConv {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--muted);
+  min-width: 42px;
+  text-align: right;
+}
+
+/* ---- Trend chart ---- */
+.chartWrap {
+  flex: 1;
+  min-height: 220px;
+  position: relative;
+}
+.svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+.axisLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--muted);
+}
+.tooltip {
+  position: absolute;
+  pointer-events: none;
+  transform: translate(-50%, -120%);
+  background: var(--command);
+  color: #fff;
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+  font-size: var(--t-xs);
+  white-space: nowrap;
+  box-shadow: var(--shadow-2);
+  z-index: 5;
+}
+.tooltip b {
+  font-family: var(--font-mono);
+}
+
+/* ---- Upcoming follow-ups panel ---- */
+.fullRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-4);
+}
+.empty {
+  color: var(--muted);
+  font-size: var(--t-sm);
+  padding: var(--sp-5);
+  text-align: center;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, #e3e9f1 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s infinite;
+  border-radius: var(--r-md);
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 1024px) {
+  .tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

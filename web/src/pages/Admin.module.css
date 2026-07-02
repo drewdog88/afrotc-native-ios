@@ -1,0 +1,338 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  max-width: 1180px;
+}
+
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+.title {
+  font-size: var(--t-2xl);
+}
+.subtitle {
+  color: var(--muted);
+  font-size: var(--t-sm);
+  margin-top: 2px;
+}
+
+/* ---- Panels ---- */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.sectionHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+.sectionTitle {
+  font-size: var(--t-xl);
+}
+.sectionNote {
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+
+/* ---- Toolbar ---- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.search {
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+}
+
+/* ---- Table ---- */
+.tableWrap {
+  overflow: hidden;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+.table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.table td {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  vertical-align: middle;
+}
+.row,
+.rowStatic {
+  transition: background 0.12s ease;
+}
+.row:hover {
+  background: var(--surface-2);
+}
+.row:last-child td,
+.rowStatic:last-child td {
+  border-bottom: none;
+}
+.name {
+  font-weight: 600;
+  color: var(--ink);
+}
+.sub {
+  color: var(--muted);
+  font-size: var(--t-xs);
+  margin-top: 1px;
+}
+.muted {
+  color: var(--muted);
+}
+.right {
+  text-align: right;
+}
+.recordCell {
+  font-size: var(--t-sm);
+}
+.rowError {
+  color: var(--danger);
+  font-size: var(--t-xs);
+  margin-top: 2px;
+}
+
+/* ---- Inline role picker ---- */
+.rolePicker {
+  height: 34px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--t-sm);
+  cursor: pointer;
+}
+.rolePicker:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---- Active-state chip ---- */
+.stateChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.stateChip:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.stateChip:disabled {
+  cursor: not-allowed;
+}
+.stateDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.stateActive {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
+}
+.stateActive .stateDot {
+  background: var(--ok);
+}
+.stateInactive {
+  color: var(--muted);
+}
+.stateInactive .stateDot {
+  background: var(--muted);
+}
+
+/* ---- Delete confirm ---- */
+.confirmRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+}
+.confirmText {
+  color: var(--danger);
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+.dangerBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  background: var(--danger);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.dangerBtn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.dangerBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---- Empty + count ---- */
+.empty {
+  color: var(--muted);
+  font-size: var(--t-sm);
+  padding: var(--sp-7);
+  text-align: center;
+}
+.count {
+  color: var(--muted);
+  font-size: var(--t-sm);
+  font-family: var(--font-mono);
+}
+.activityFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+/* ---- Restricted state ---- */
+.restricted {
+  padding: var(--sp-7);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.restrictedMark {
+  font-size: 2rem;
+}
+.restrictedTitle {
+  font-size: var(--t-xl);
+}
+.restrictedBody {
+  color: var(--muted);
+  font-size: var(--t-sm);
+  max-width: 440px;
+}
+
+/* ---- Skeleton ---- */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, #e3e9f1 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s infinite;
+  border-radius: var(--r-md);
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---- Create drawer ---- */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 16, 31, 0.5);
+  z-index: 40;
+  display: flex;
+  justify-content: flex-end;
+}
+.drawer {
+  width: min(460px, 100%);
+  height: 100%;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+  padding: var(--sp-6);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.drawerHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.drawerTitle {
+  font-size: var(--t-xl);
+}
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+}
+.select {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--t-base);
+}
+.drawerActions {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: auto;
+  padding-top: var(--sp-4);
+}
+.drawerActions .btn {
+  flex: 1;
+}
+.formError {
+  background: rgba(180, 86, 63, 0.1);
+  border: 1px solid rgba(180, 86, 63, 0.4);
+  color: var(--danger);
+  border-radius: var(--r-md);
+  padding: var(--sp-3);
+  font-size: var(--t-sm);
+}
+
+@media (max-width: 720px) {
+  .colHide {
+    display: none;
+  }
+}

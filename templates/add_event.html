@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Add Event - AFROTC 695{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Schedule Recruitment Event</h1>
+                <a href="{{ url_for('calendar') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Calendar
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+    
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    <label for="title" class="form-label">Event Title *</label>
+                    <input type="text" class="form-control" id="title" name="title" required>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="event_type" class="form-label">Event Type *</label>
+                    <select class="form-select" id="event_type" name="event_type" required>
+                        <option value="">Select type...</option>
+                        <option value="info_session">Information Session</option>
+                        <option value="career_fair">Career Fair</option>
+                        <option value="campus_visit">Campus Visit</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="event_date" class="form-label">Event Date *</label>
+                    <input type="date" class="form-control" id="event_date" name="event_date" required>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="start_time" class="form-label">Start Time</label>
+                    <input type="time" class="form-control" id="start_time" name="start_time">
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="end_time" class="form-label">End Time</label>
+                    <input type="time" class="form-control" id="end_time" name="end_time">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="location" class="form-label">Location</label>
+                    <input type="text" class="form-control" id="location" name="location">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="university_id" class="form-label">Associated High School</label>
+                    <select class="form-select" id="university_id" name="university_id">
+                        <option value="">Select high school...</option>
+                        {% for contact in contacts %}
+                        <option value="{{ contact.id }}">{{ contact.university_name }}</option>
+                        {% endfor %}
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="notes" class="form-label">Notes</label>
+                <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                                    <a href="{{ url_for('calendar') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Schedule Event
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 
+

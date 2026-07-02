@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Add Contact - AFROTC 695{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Add High School Contact</h1>
+    <a href="{{ url_for('contacts') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Contacts
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+    
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="university_name" class="form-label">High School Name *</label>
+                    <input type="text" class="form-control" id="university_name" name="university_name" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="contact_name" class="form-label">Contact Name *</label>
+                    <input type="text" class="form-control" id="contact_name" name="contact_name" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="contact_title" class="form-label">Contact Title</label>
+                    <input type="text" class="form-control" id="contact_title" name="contact_title">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="email" class="form-label">Email *</label>
+                    <input type="email" class="form-control" id="email" name="email" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="phone" class="form-label">Phone</label>
+                    <input type="tel" class="form-control" id="phone" name="phone">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="address" class="form-label">Address</label>
+                    <textarea class="form-control" id="address" name="address" rows="2"></textarea>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="notes" class="form-label">Notes</label>
+                <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Contact
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 
+

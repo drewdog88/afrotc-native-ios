@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Document - AFROTC 695{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-1">Upload Document</h1>
+        <p class="text-muted mb-0">Add a new document to the recruitment materials library</p>
+    </div>
+    <div class="ms-auto">
+        <a href="{{ url_for('materials') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Materials
+        </a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-upload me-2"></i>
+                    Document Upload
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="title" class="form-label">Title *</label>
+                                <input type="text" class="form-control" id="title" name="title" required>
+                                <div class="form-text">A descriptive title for the document</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="category" class="form-label">Category</label>
+                                <select class="form-select" id="category" name="category">
+                                    <option value="general">General</option>
+                                    <option value="presentations">Presentations</option>
+                                    <option value="forms">Forms</option>
+                                    <option value="guides">Guides</option>
+                                    <option value="brochures">Brochures</option>
+                                    <option value="applications">Applications</option>
+                                    <option value="policies">Policies</option>
+                                    <option value="training">Training Materials</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="file" class="form-label">File *</label>
+                        <input type="file" class="form-control" id="file" name="file" required>
+                        <div class="form-text">
+                            Allowed file types: PDF, PPT, PPTX, DOC, DOCX, XLS, XLSX, TXT<br>
+                            Maximum file size: 10 MB
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        <div class="form-text">Optional description of the document contents</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="sort_order" class="form-label">Sort Order</label>
+                        <input type="number" class="form-control" id="sort_order" name="sort_order" value="0" min="0">
+                        <div class="form-text">Lower numbers appear first in the list</div>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('materials') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-upload"></i> Upload Document
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- File Type Information -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Supported File Types
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Documents</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-file-pdf text-danger me-2"></i>PDF Files (.pdf)</li>
+                            <li><i class="fas fa-file-word text-primary me-2"></i>Word Documents (.doc, .docx)</li>
+                            <li><i class="fas fa-file-excel text-success me-2"></i>Excel Spreadsheets (.xls, .xlsx)</li>
+                            <li><i class="fas fa-file-alt text-secondary me-2"></i>Text Files (.txt)</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Presentations</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-file-powerpoint text-warning me-2"></i>PowerPoint (.ppt, .pptx)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
+
