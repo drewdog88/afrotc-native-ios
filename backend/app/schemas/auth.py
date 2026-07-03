@@ -35,6 +35,20 @@ class PasswordChange(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+class ForgotPasswordRequest(BaseModel):
+    username: str  # accepts username or email
+
+
+class SecretQuestionOut(BaseModel):
+    secret_question: str
+
+
+class ResetPasswordRequest(BaseModel):
+    username: str  # accepts username or email
+    secret_answer: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class UserOut(ORMModel):
     id: int
     username: str
