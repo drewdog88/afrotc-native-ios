@@ -1,44 +1,58 @@
 # Backup & Disaster Recovery
 
-**The single source of truth is Neon Postgres.** There is no local/SQLite fallback
-and no application-level backup job. The old Flask app's custom backup-to-blob
-scheduler (`backup_to_blob.py`, `neon_backup_scheduler.py`) is **not** part of this
-codebase — it is intentionally replaced by Neon's native durability features below.
+**The single source of truth is Neon Postgres.** There is no local/SQLite fallback.
 
-## Recovery mechanisms (Neon-native)
+## Primary backup: nightly pg_dump → GitHub Release (free)
 
-1. **Point-in-Time Restore (PITR).** Neon continuously retains WAL history, so the
-   database can be restored to any moment inside the retention window (bounded by the
-   project's plan — verify the exact window in the Neon console under
-   *Project → Settings → Storage*). Use this for "undo a bad migration / accidental
-   `DELETE`" scenarios.
+Neon's built-in point-in-time restore keeps only a short history window on the free
+plan, and scheduled/long-retention backups require a **paid** Neon plan. So the real
+backup here is external and plan-independent:
 
-2. **Branching.** Create a branch from `main` at a past timestamp to inspect or
-   recover data *without* disturbing production, then promote or copy rows back.
-   This is the preferred way to investigate data loss before committing to a full
-   restore. Branches are copy-on-write and cheap.
+- **`.github/workflows/backup.yml`** runs nightly (`0 9 * * *` UTC ≈ 02:00 Pacific),
+  and can be run on demand from the Actions tab (**Run workflow**).
+- It `pg_dump`s the database (custom format, `-Fc`, `--no-owner --no-privileges`)
+  using the `BACKUP_DATABASE_URL` GitHub Actions secret — a **direct, non-pooled**
+  Neon connection string (`sslmode=require`).
+- Each dump is published as a **dated pre-release** (`backup-YYYYMMDD-HHMMSS`) with
+  the `.dump` file attached. The workflow keeps the newest **14** and prunes older
+  ones (adjust via the `KEEP` env in the workflow).
 
-3. **Schema versioning.** The schema itself is reproducible from Alembic migrations
-   in `backend/alembic/`. `alembic upgrade head` rebuilds the schema on any fresh
-   Neon branch/project; `backend/scripts/seed_demo.py` reseeds reference data.
+### Restore from a backup
 
-## Runbook
+1. Download the `.dump` asset from the desired release
+   (Releases tab, or `gh release download <tag>`).
+2. Restore into a target database (a fresh Neon branch/project, or local scratch):
+   ```
+   pg_restore --no-owner --no-privileges -d "$TARGET_DATABASE_URL" det695-YYYYMMDD-HHMMSS.dump
+   ```
+3. Point `DATABASE_URL` (in Vercel) at the restored database if promoting it.
 
-| Scenario | Action |
-|---|---|
-| Bad migration / bad bulk edit just shipped | Neon console → **Restore** to a timestamp just before the change (or branch at that time, verify, then restore). |
-| Need to inspect old data safely | Create a Neon **branch** at the target timestamp; connect a throwaway `DATABASE_URL` to it. |
-| Total project loss | New Neon project → set `DATABASE_URL` in Vercel → `alembic upgrade head` → reseed. |
+> The GitHub secret `BACKUP_DATABASE_URL` is the direct endpoint (the pooled
+> `-pooler` host stripped) because `pg_dump` should not run through PgBouncer.
+> Rotate it with `gh secret set BACKUP_DATABASE_URL --repo drewdog88/afrotc-native-ios`.
 
-## What is NOT backed up here
+## Secondary: Neon PITR + branching (short window on free plan)
+
+For a *recent* mistake (bad migration, accidental bulk edit), Neon's own tools are
+faster than a restore — within the free plan's retention window:
+
+- **Point-in-Time Restore** to a timestamp just before the change
+  (Neon console → *Restore*). Retention window is bounded by the plan; confirm the
+  current window under *Project → Settings → Storage*.
+- **Branching**: branch from a past timestamp to inspect/recover data without
+  touching production, then copy rows back or promote.
+
+If the retention window is ever too short for comfort and a paid plan isn't an
+option, shorten the backup cron interval (e.g. twice daily) instead.
+
+## Schema is always reproducible
+
+The schema is rebuilt from Alembic migrations in `backend/alembic/`
+(`alembic upgrade head`) on any fresh Neon branch/project; `backend/scripts/seed_demo.py`
+reseeds reference data. A dump restore brings back the data on top of that.
+
+## Not covered by the DB dump
 
 Uploaded materials (`backend/app/api/v1/materials.py`) live in Vercel Blob, which has
-its own durability; they are outside the Postgres PITR window. If materials become
+its own durability and is outside the Postgres dump. If materials become
 business-critical, add a periodic Blob export — not needed at current usage.
-
-## Verify PITR retention
-
-The retention window depends on the Neon plan. Confirm it in the Neon console and,
-if the current window is shorter than desired, either upgrade the plan or accept the
-documented window. As of this writing the recovery posture above is the intended
-strategy; there is deliberately no cron/scheduler to maintain.
