@@ -82,7 +82,8 @@ def create_link(
     _: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ExternalLink:
-    return link_crud.create(db, body.model_dump())
+    # mode="json" serializes HttpUrl -> str so it fits the String column.
+    return link_crud.create(db, body.model_dump(mode="json"))
 
 
 @router.patch("/links/{link_id}", response_model=LinkOut)
@@ -93,7 +94,7 @@ def update_link(
     db: Session = Depends(get_db),
 ) -> ExternalLink:
     link = _get_link_or_404(db, link_id)
-    return link_crud.update(db, link, body.model_dump(exclude_unset=True))
+    return link_crud.update(db, link, body.model_dump(exclude_unset=True, mode="json"))
 
 
 @router.delete("/links/{link_id}", status_code=status.HTTP_204_NO_CONTENT)
