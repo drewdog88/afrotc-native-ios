@@ -15,6 +15,7 @@ struct CadetsView: View {
     @State private var status: String?
     @State private var error: String?
     @State private var loading = false
+    @State private var showingCreateSheet = false
 
     var body: some View {
         NavigationStack {
@@ -32,9 +33,18 @@ struct CadetsView: View {
             .listStyle(.plain)
             .overlay { if loading && cadets.isEmpty { ProgressView() } }
             .navigationTitle("Cadets")
+            .navigationBarTitleDisplayMode(.inline)
+            .det695BrandBar()
             .navigationDestination(for: CadetRoute.self) { CadetDetailView(cadetId: $0.id) }
             .searchable(text: $search, prompt: "Search cadets")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showingCreateSheet = true
+                    } label: {
+                        Label("Add", systemImage: "plus")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("All statuses") { status = nil }
@@ -45,6 +55,11 @@ struct CadetsView: View {
                     } label: {
                         Label(status?.capitalized ?? "All", systemImage: "line.3.horizontal.decrease.circle")
                     }
+                }
+            }
+            .sheet(isPresented: $showingCreateSheet) {
+                CadetFormSheet(mode: .create) {
+                    await load()
                 }
             }
             .task(id: filterKey) { await load() }
@@ -104,6 +119,9 @@ struct CadetDetailView: View {
     let cadetId: Int
     @State private var cadet: CadetOut?
     @State private var error: String?
+    @State private var showingEditSheet = false
+    @State private var showingDeleteConfirm = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         Group {
@@ -141,6 +159,17 @@ struct CadetDetailView: View {
                             }
                         }
                     }
+                    Section {
+                        Button(role: .destructive) {
+                            showingDeleteConfirm = true
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text("Delete cadet")
+                                Spacer()
+                            }
+                        }
+                    }
                 }
             } else if let error {
                 ContentUnavailableView("Couldn't load", systemImage: "exclamationmark.triangle",
@@ -151,11 +180,218 @@ struct CadetDetailView: View {
         }
         .navigationTitle(cadet?.fullName ?? "Cadet")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Edit") {
+                    showingEditSheet = true
+                }
+                .disabled(cadet == nil)
+            }
+        }
+        .sheet(isPresented: $showingEditSheet) {
+            if let c = cadet {
+                CadetFormSheet(mode: .edit(c)) {
+                    await load()
+                }
+            }
+        }
+        .confirmationDialog("Delete this cadet?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                Task { await deleteCadet() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This action cannot be undone.")
+        }
         .task { await load() }
     }
 
     private func load() async {
         do { cadet = try await APIClient.shared.cadet(id: cadetId) }
         catch { self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription }
+    }
+
+    private func deleteCadet() async {
+        do {
+            try await APIClient.shared.deleteCadet(id: cadetId)
+            dismiss()
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+}
+
+/// Shared form sheet for creating or editing a cadet.
+private struct CadetFormSheet: View {
+    enum Mode {
+        case create
+        case edit(CadetOut)
+    }
+
+    let mode: Mode
+    let onSave: () async -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var firstName = ""
+    @State private var lastName = ""
+    @State private var email = ""
+    @State private var major = ""
+    @State private var graduationYear = ""
+    @State private var cadetRank = ""
+    @State private var status = "active"
+    @State private var phone = ""
+    @State private var hometown = ""
+    @State private var officerInterest = ""
+    @State private var gpa = ""
+    @State private var unenrollmentReason = ""
+    @State private var unenrollmentDate = ""
+    @State private var saving = false
+    @State private var error: String?
+
+    private let statuses = ["active", "inactive", "graduated"]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if let error {
+                    Section {
+                        Text(error).foregroundStyle(Theme.danger)
+                    }
+                }
+
+                Section("Required") {
+                    TextField("First name", text: $firstName)
+                    TextField("Last name", text: $lastName)
+                    TextField("Email", text: $email)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                    TextField("Major", text: $major)
+                    TextField("Graduation year", text: $graduationYear)
+                        .keyboardType(.numberPad)
+                    TextField("Cadet rank", text: $cadetRank)
+                }
+
+                Section("Status") {
+                    Picker("Status", selection: $status) {
+                        ForEach(statuses, id: \.self) { s in
+                            Text(s.capitalized).tag(s)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    if status == "inactive" {
+                        TextField("Unenrollment reason", text: $unenrollmentReason)
+                        TextField("Unenrollment date (YYYY-MM-DD)", text: $unenrollmentDate)
+                            .textInputAutocapitalization(.never)
+                    }
+                }
+
+                Section("Optional") {
+                    TextField("Phone", text: $phone)
+                        .keyboardType(.phonePad)
+                    TextField("Hometown", text: $hometown)
+                    TextField("Officer interest", text: $officerInterest, axis: .vertical)
+                        .lineLimit(3...6)
+                    TextField("GPA", text: $gpa)
+                        .keyboardType(.decimalPad)
+                }
+            }
+            .navigationTitle(mode.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .disabled(saving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task { await save() }
+                    }
+                    .disabled(saving || !isValid)
+                }
+            }
+            .onAppear { prefillIfNeeded() }
+        }
+    }
+
+    private var isValid: Bool {
+        !firstName.isEmpty && !lastName.isEmpty && !email.isEmpty &&
+        !major.isEmpty && !graduationYear.isEmpty && !cadetRank.isEmpty &&
+        Int(graduationYear) != nil
+    }
+
+    private func prefillIfNeeded() {
+        guard case .edit(let cadet) = mode else { return }
+        firstName = cadet.firstName
+        lastName = cadet.lastName
+        email = cadet.email
+        major = cadet.major
+        graduationYear = String(cadet.graduationYear)
+        cadetRank = cadet.cadetRank
+        status = cadet.status
+        phone = cadet.phone ?? ""
+        hometown = cadet.hometown ?? ""
+        officerInterest = cadet.officerInterest ?? ""
+        if let g = cadet.gpa {
+            gpa = String(format: "%.2f", g)
+        }
+        unenrollmentReason = cadet.unenrollmentReason ?? ""
+        unenrollmentDate = cadet.unenrollmentDate ?? ""
+    }
+
+    private func save() async {
+        saving = true
+        error = nil
+        defer { saving = false }
+
+        do {
+            switch mode {
+            case .create:
+                let input = CadetCreateInput(
+                    firstName: firstName,
+                    lastName: lastName,
+                    email: email,
+                    major: major,
+                    graduationYear: Int(graduationYear)!,
+                    cadetRank: cadetRank,
+                    status: status,
+                    phone: phone.isEmpty ? nil : phone,
+                    hometown: hometown.isEmpty ? nil : hometown,
+                    officerInterest: officerInterest.isEmpty ? nil : officerInterest,
+                    gpa: Double(gpa)
+                )
+                _ = try await APIClient.shared.createCadet(input)
+            case .edit(let cadet):
+                let input = CadetUpdateInput(
+                    firstName: firstName,
+                    lastName: lastName,
+                    email: email,
+                    major: major,
+                    graduationYear: Int(graduationYear)!,
+                    cadetRank: cadetRank,
+                    status: status,
+                    phone: phone.isEmpty ? nil : phone,
+                    hometown: hometown.isEmpty ? nil : hometown,
+                    officerInterest: officerInterest.isEmpty ? nil : officerInterest,
+                    unenrollmentReason: unenrollmentReason.isEmpty ? nil : unenrollmentReason,
+                    unenrollmentDate: unenrollmentDate.isEmpty ? nil : unenrollmentDate,
+                    gpa: Double(gpa)
+                )
+                _ = try await APIClient.shared.updateCadet(id: cadet.id, input)
+            }
+            await onSave()
+            dismiss()
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+}
+
+private extension CadetFormSheet.Mode {
+    var title: String {
+        switch self {
+        case .create: return "New Cadet"
+        case .edit: return "Edit Cadet"
+        }
     }
 }

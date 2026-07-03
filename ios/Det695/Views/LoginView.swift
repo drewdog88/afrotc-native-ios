@@ -15,9 +15,7 @@ struct LoginView: View {
             Theme.ink.ignoresSafeArea()
             VStack(spacing: 24) {
                 VStack(spacing: 6) {
-                    Image(systemName: "chevron.up.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(Theme.accent)
+                    Insignia(size: 56, base: .white)
                     Text("Det 695")
                         .font(.largeTitle.bold())
                         .foregroundStyle(.white)

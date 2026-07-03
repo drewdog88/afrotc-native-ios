@@ -71,6 +71,7 @@ function defaultDueLocal(): string {
 export function FollowUps() {
   const qc = useQueryClient();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<FollowUpOut | null>(null);
 
   const listQ = useQuery({
     queryKey: ["followups"],
@@ -163,6 +164,7 @@ export function FollowUps() {
               emptyCopy={g.empty}
               recruitName={recruitName}
               onChanged={invalidate}
+              onEdit={setEditing}
             />
           ))}
 
@@ -174,6 +176,7 @@ export function FollowUps() {
               emptyCopy=""
               recruitName={recruitName}
               onChanged={invalidate}
+              onEdit={setEditing}
             />
           )}
         </div>
@@ -184,6 +187,15 @@ export function FollowUps() {
           recruits={recruitsQ.data?.items ?? []}
           onClose={() => setCreating(false)}
           onCreated={invalidate}
+        />
+      )}
+
+      {editing && (
+        <EditDrawer
+          followup={editing}
+          recruits={recruitsQ.data?.items ?? []}
+          onClose={() => setEditing(null)}
+          onUpdated={invalidate}
         />
       )}
     </div>
@@ -197,6 +209,7 @@ function Group({
   emptyCopy,
   recruitName,
   onChanged,
+  onEdit,
 }: {
   label: string;
   bucket: Bucket | "done";
@@ -204,6 +217,7 @@ function Group({
   emptyCopy: string;
   recruitName: Map<number, string>;
   onChanged: () => void;
+  onEdit: (followup: FollowUpOut) => void;
 }) {
   // Upcoming/Done empty groups stay hidden to keep the queue tight; Overdue/Today
   // always render so the recruiter sees an explicit "you're clear" signal.
@@ -220,7 +234,7 @@ function Group({
       ) : (
         <ul className={`card ${styles.list}`}>
           {rows.map((f) => (
-            <Row key={f.id} followup={f} bucket={bucket} recruitName={recruitName} onChanged={onChanged} />
+            <Row key={f.id} followup={f} bucket={bucket} recruitName={recruitName} onChanged={onChanged} onEdit={onEdit} />
           ))}
         </ul>
       )}
@@ -233,11 +247,13 @@ function Row({
   bucket,
   recruitName,
   onChanged,
+  onEdit,
 }: {
   followup: FollowUpOut;
   bucket: Bucket | "done";
   recruitName: Map<number, string>;
   onChanged: () => void;
+  onEdit: (followup: FollowUpOut) => void;
 }) {
   const isDone = followup.status === "done";
 
@@ -305,6 +321,16 @@ function Row({
           )}
         </div>
       </div>
+
+      <button
+        type="button"
+        className={styles.edit}
+        aria-label="Edit follow-up"
+        disabled={busy}
+        onClick={() => onEdit(followup)}
+      >
+        Edit
+      </button>
 
       <button
         type="button"
@@ -429,6 +455,131 @@ function CreateDrawer({
           </button>
           <button type="submit" className="btn btn-primary" disabled={create.isPending}>
             {create.isPending ? "Creating…" : "Create follow-up"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// Helper to format ISO date to datetime-local input value
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const pad = (x: number) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function EditDrawer({
+  followup,
+  recruits,
+  onClose,
+  onUpdated,
+}: {
+  followup: FollowUpOut;
+  recruits: RecruitOut[];
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  const [note, setNote] = useState(followup.note);
+  const [due, setDue] = useState(toDatetimeLocal(followup.due_date));
+  const [recruitId, setRecruitId] = useState(followup.recruit_id != null ? String(followup.recruit_id) : "");
+  const [error, setError] = useState<string | null>(null);
+
+  const update = useMutation({
+    mutationFn: (body: FollowUpUpdate) => api.patch<FollowUpOut>(`/followups/${followup.id}`, body),
+    onSuccess: () => {
+      onUpdated();
+      onClose();
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Couldn't update the follow-up."),
+  });
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const trimmed = note.trim();
+    if (!trimmed) {
+      setError("Add a short note describing the task.");
+      return;
+    }
+    const parsed = new Date(due);
+    if (Number.isNaN(parsed.getTime())) {
+      setError("Pick a valid due date.");
+      return;
+    }
+    update.mutate({
+      note: trimmed,
+      due_date: parsed.toISOString(),
+      recruit_id: recruitId ? Number(recruitId) : null,
+    });
+  }
+
+  return (
+    <div className={styles.scrim} onClick={onClose}>
+      <form className={styles.drawer} onClick={(e) => e.stopPropagation()} onSubmit={onSubmit}>
+        <div className={styles.drawerHead}>
+          <h2 className={styles.drawerTitle}>Edit follow-up</h2>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+
+        {error && <div className={styles.formError}>{error}</div>}
+
+        <div className={styles.field}>
+          <label className="field-label" htmlFor="fu-edit-note">
+            What needs to happen?
+          </label>
+          <textarea
+            id="fu-edit-note"
+            className={styles.noteInput}
+            placeholder="Call to confirm application status, send scholarship packet…"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            required
+            autoFocus
+          />
+        </div>
+
+        <div className={styles.field}>
+          <label className="field-label" htmlFor="fu-edit-due">
+            Due
+          </label>
+          <input
+            id="fu-edit-due"
+            className="input"
+            type="datetime-local"
+            value={due}
+            onChange={(e) => setDue(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className={styles.field}>
+          <label className="field-label" htmlFor="fu-edit-recruit">
+            Linked recruit (optional)
+          </label>
+          <select
+            id="fu-edit-recruit"
+            className={styles.select}
+            value={recruitId}
+            onChange={(e) => setRecruitId(e.target.value)}
+          >
+            <option value="">No recruit</option>
+            {recruits.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.full_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className={styles.drawerActions}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={update.isPending}>
+            {update.isPending ? "Saving…" : "Save changes"}
           </button>
         </div>
       </form>

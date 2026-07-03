@@ -47,6 +47,8 @@ struct PipelineView: View {
         .background(Color(.systemGroupedBackground))
         .overlay { if loading && funnel == nil { ProgressView().controlSize(.large) } }
         .navigationTitle("Pipeline")
+        .navigationBarTitleDisplayMode(.inline)
+        .det695BrandBar()
         .task(id: interval) { await load() }
         .refreshable { await load() }
     }

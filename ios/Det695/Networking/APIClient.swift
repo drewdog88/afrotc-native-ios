@@ -175,6 +175,79 @@ actor APIClient {
                               bodyData: nil, authed: true)
     }
 
+    // MARK: - Mutations
+
+    // Recruits
+    @discardableResult
+    func createRecruit(_ body: RecruitCreateInput) async throws -> RecruitOut {
+        try await requestJSON("/recruits", method: "POST", bodyData: try encoder.encode(body), authed: true)
+    }
+    @discardableResult
+    func updateRecruit(id: Int, _ body: RecruitUpdateInput) async throws -> RecruitOut {
+        try await requestJSON("/recruits/\(id)", method: "PATCH", bodyData: try encoder.encode(body), authed: true)
+    }
+    func deleteRecruit(id: Int) async throws {
+        _ = try await requestData("/recruits/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+    @discardableResult
+    func changeRecruitStage(id: Int, toStage: String, note: String? = nil) async throws -> RecruitOut {
+        let body = StageChangeInput(toStage: toStage, note: note)
+        return try await requestJSON("/recruits/\(id)/stage", method: "POST",
+                                     bodyData: try encoder.encode(body), authed: true)
+    }
+
+    // Cadets
+    @discardableResult
+    func createCadet(_ body: CadetCreateInput) async throws -> CadetOut {
+        try await requestJSON("/cadets", method: "POST", bodyData: try encoder.encode(body), authed: true)
+    }
+    @discardableResult
+    func updateCadet(id: Int, _ body: CadetUpdateInput) async throws -> CadetOut {
+        try await requestJSON("/cadets/\(id)", method: "PATCH", bodyData: try encoder.encode(body), authed: true)
+    }
+    func deleteCadet(id: Int) async throws {
+        _ = try await requestData("/cadets/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
+    // Contacts
+    @discardableResult
+    func createContact(_ body: ContactCreateInput) async throws -> ContactOut {
+        try await requestJSON("/contacts", method: "POST", bodyData: try encoder.encode(body), authed: true)
+    }
+    @discardableResult
+    func updateContact(id: Int, _ body: ContactUpdateInput) async throws -> ContactOut {
+        try await requestJSON("/contacts/\(id)", method: "PATCH", bodyData: try encoder.encode(body), authed: true)
+    }
+    func deleteContact(id: Int) async throws {
+        _ = try await requestData("/contacts/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
+    // Events
+    @discardableResult
+    func createEvent(_ body: EventCreateInput) async throws -> EventOut {
+        try await requestJSON("/events", method: "POST", bodyData: try encoder.encode(body), authed: true)
+    }
+    @discardableResult
+    func updateEvent(id: Int, _ body: EventUpdateInput) async throws -> EventOut {
+        try await requestJSON("/events/\(id)", method: "PATCH", bodyData: try encoder.encode(body), authed: true)
+    }
+    func deleteEvent(id: Int) async throws {
+        _ = try await requestData("/events/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
+    // Follow-ups
+    @discardableResult
+    func createFollowup(_ body: FollowUpCreateInput) async throws -> FollowUpOut {
+        try await requestJSON("/followups", method: "POST", bodyData: try encoder.encode(body), authed: true)
+    }
+    @discardableResult
+    func updateFollowup(id: Int, _ body: FollowUpUpdateInput) async throws -> FollowUpOut {
+        try await requestJSON("/followups/\(id)", method: "PATCH", bodyData: try encoder.encode(body), authed: true)
+    }
+    func deleteFollowup(id: Int) async throws {
+        _ = try await requestData("/followups/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
     // MARK: - Core request
 
     private func requestJSON<T: Decodable>(_ path: String, method: String, bodyData: Data?,

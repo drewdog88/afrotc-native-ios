@@ -140,6 +140,8 @@ struct MoreView: View {
                 }
             }
             .navigationTitle("More")
+            .navigationBarTitleDisplayMode(.inline)
+            .det695BrandBar()
             .navigationDestination(for: Destination.self) { dest in
                 switch dest {
                 case .contacts: ContactsView()

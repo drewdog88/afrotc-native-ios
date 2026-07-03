@@ -24,6 +24,8 @@ struct DashboardView: View {
                 }
             }
             .navigationTitle("Dashboard")
+            .navigationBarTitleDisplayMode(.inline)
+            .det695BrandBar()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Sign out") { Task { await session.logout() } }
