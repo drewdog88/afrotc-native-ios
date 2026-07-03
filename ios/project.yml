@@ -1,0 +1,46 @@
+# XcodeGen spec for the Det 695 Recruiting Ops iOS app.
+#
+# This repo has no committed .xcodeproj on purpose — the project is generated
+# from this spec so there's no fragile pbxproj to hand-merge. To open it:
+#
+#   brew install xcodegen        # one-time
+#   cd ios && xcodegen generate  # writes Det695.xcodeproj + Det695/Info.plist
+#   open Det695.xcodeproj
+#
+# The app talks to the same FastAPI backend as the web client (shared/openapi.json).
+name: Det695
+options:
+  bundleIdPrefix: com.det695
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: "" # fill in your Apple Developer team ID to run on device
+targets:
+  Det695:
+    type: application
+    platform: iOS
+    sources:
+      - path: Det695
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.det695.recruiting
+    info:
+      # XcodeGen generates this Info.plist from the properties below and points
+      # INFOPLIST_FILE at it.
+      path: Det695/Info.plist
+      properties:
+        CFBundleDisplayName: Det 695
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # Allow http://localhost during development against a local backend.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            localhost:
+              NSExceptionAllowsInsecureHTTPLoads: true
