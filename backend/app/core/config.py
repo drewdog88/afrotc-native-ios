@@ -45,9 +45,9 @@ class Settings(BaseSettings):
     bootstrap_admin_email: str = "admin@det695.local"
     bootstrap_admin_password: str = ""
 
-    # File storage: "postgres" (bytea in DB) or "vercel_blob"
-    storage_backend: str = "postgres"
-    blob_read_write_token: str = ""
+    # File uploads. Documents are stored as bytea in Postgres (see
+    # app/api/v1/materials.py) — they rarely change and this keeps them inside
+    # the nightly pg_dump backup. No external blob store.
     max_upload_bytes: int = 25 * 1024 * 1024  # 25 MB
 
     # CORS

@@ -21,8 +21,8 @@ class ExternalLink(Base, TimestampMixin):
 
 
 class RecruitmentDocument(Base, TimestampMixin):
-    """Uploaded materials. File bytes live either in Postgres (`file_data`)
-    or in Vercel Blob (`blob_url`), per STORAGE_BACKEND.
+    """Uploaded materials. File bytes are stored in Postgres (`file_data`, bytea)
+    so these rarely-changing documents stay inside the nightly pg_dump backup.
     """
 
     __tablename__ = "recruitment_document"
@@ -38,6 +38,8 @@ class RecruitmentDocument(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
-    # Storage: one of these is populated depending on STORAGE_BACKEND.
-    blob_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     file_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    # Legacy, unused: the old app kept an external blob URL here. Documents are
+    # now stored in `file_data`; this column is always NULL and kept only to
+    # avoid a production schema migration.
+    blob_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)

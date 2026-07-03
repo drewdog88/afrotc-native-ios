@@ -163,17 +163,8 @@ async def upload_document(
     # Use title if provided, otherwise derive from filename
     doc_title = title or Path(original_filename).stem
 
-    # Storage backend selection
-    if settings.storage_backend == "vercel_blob":
-        # TODO: Implement Vercel Blob upload with settings.blob_read_write_token
-        # For now, fall back to postgres/bytea storage
-        blob_url = None
-        file_data = contents
-    else:
-        # postgres / sqlite: store in bytea column
-        blob_url = None
-        file_data = contents
-
+    # Documents are stored as bytea in Postgres. They rarely change and this keeps
+    # them inside the nightly pg_dump backup — no external blob store.
     doc = doc_crud.create(
         db,
         {
@@ -184,8 +175,7 @@ async def upload_document(
             "file_size": file_size,
             "file_type": content_type,
             "category": category,
-            "blob_url": blob_url,
-            "file_data": file_data,
+            "file_data": contents,
         },
     )
     return doc
@@ -199,14 +189,8 @@ async def download_document(
 ) -> StreamingResponse:
     doc = _get_doc_or_404(db, doc_id)
 
-    # Retrieve file bytes
-    if doc.blob_url:
-        # TODO: Fetch from Vercel Blob using doc.blob_url
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Vercel Blob download not yet implemented",
-        )
-    elif doc.file_data:
+    # Documents are stored as bytea in Postgres.
+    if doc.file_data:
         file_bytes = doc.file_data
     else:
         raise HTTPException(

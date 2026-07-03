@@ -111,15 +111,15 @@ recruits / cadets / contacts / events.
 `DATABASE_URL` (required, must be `postgresql`), `SECRET_KEY`, `ENCRYPTION_KEY`,
 `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS`,
 `PASSWORD_EXPIRY_DAYS`, `MAX_FAILED_LOGINS`, `PASSWORD_HISTORY_SIZE`,
-`BOOTSTRAP_ADMIN_USERNAME` / `_EMAIL` / `_PASSWORD`, `STORAGE_BACKEND`
-(`postgres` default | `vercel_blob`), `BLOB_READ_WRITE_TOKEN`, `MAX_UPLOAD_BYTES`
-(25 MB), `CORS_ORIGINS`, `CRON_SECRET`. Locally these live in `.env` (gitignored);
-in the cloud they're Vercel env vars / GitHub Actions secrets.
+`BOOTSTRAP_ADMIN_USERNAME` / `_EMAIL` / `_PASSWORD`, `MAX_UPLOAD_BYTES` (25 MB),
+`CORS_ORIGINS`, `CRON_SECRET`. Locally these live in `.env` (gitignored); in the
+cloud they're Vercel env vars / GitHub Actions secrets.
 
 ## Document storage
 
-With `STORAGE_BACKEND=postgres` (the default) uploaded documents are stored as
-Postgres `bytea` on `recruitment_document.file_data` and streamed back on
-download — so **documents are inside the nightly DB dump** ([Backups &
-Recovery](Backups-and-Recovery)). A `vercel_blob` path (`blob_url`) is stubbed but
-not yet implemented (download from blob returns 501).
+Uploaded documents are stored as Postgres `bytea` on
+`recruitment_document.file_data` and streamed back on download. There is no
+external blob store — these files rarely change, and keeping them in Postgres
+means they're inside the nightly DB dump ([Backups &
+Recovery](Backups-and-Recovery)). (The legacy `blob_url` column remains, always
+NULL, only to avoid a production schema migration.)

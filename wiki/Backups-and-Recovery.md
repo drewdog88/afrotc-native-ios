@@ -60,9 +60,8 @@ restored DB's **pooled** URL and redeploy; keep DDL on the direct host.
 ## What's covered
 
 - **Everything in Postgres — including uploaded documents.** Documents are stored
-  as `bytea` (`recruitment_document.file_data`), so they're inside the dump. (The
-  older note that materials live only in Vercel Blob is obsolete — the app serves
-  documents from Postgres now.)
+  as `bytea` (`recruitment_document.file_data`), so they're inside the dump. There
+  is no external blob store to back up separately.
 - **Schema is always reproducible** from Alembic (`alembic upgrade head`) on any
   fresh Neon branch/project; `seed_demo.py` reseeds reference data. A dump restore
   layers the data back on top.
