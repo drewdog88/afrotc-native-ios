@@ -1,11 +1,19 @@
-/* Det 695 mark: three ascending chevrons (the ascent motif) rising toward a
-   beacon point. Used in the rail header and on the login screen. */
+/* Det 695 mark: the official AFROTC Detachment 695 patch (St. Johns Bridge,
+   Mt. Hood, and the diamond flight formation, ringed by "AFROTC DETACHMENT 695 /
+   UNIVERSITY OF PORTLAND"). Rendered from the real crest artwork so the web app
+   carries the same mark as the iOS app and the detachment. Used in the rail
+   header and on the login screen. */
+import patch from "../assets/det695-patch.png";
+
 export function Insignia({ size = 34 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
-      <path d="M20 3 L33 13 L27 13 L20 8 L13 13 L7 13 Z" fill="var(--accent)" />
-      <path d="M20 14 L33 24 L27 24 L20 19 L13 24 L7 24 Z" fill="var(--brand)" opacity="0.85" />
-      <path d="M20 25 L33 35 L27 35 L20 30 L13 35 L7 35 Z" fill="var(--brand)" opacity="0.55" />
-    </svg>
+    <img
+      src={patch}
+      width={size}
+      height={size}
+      alt=""
+      aria-hidden="true"
+      style={{ objectFit: "contain", display: "block" }}
+    />
   );
 }
