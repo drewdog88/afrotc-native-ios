@@ -30,6 +30,7 @@ struct FollowUpsView: View {
         .listStyle(.insetGrouped)
         .overlay { if loading && followups.isEmpty { ProgressView() } }
         .navigationTitle("Follow-ups")
+        .navigationDestination(for: RecruitRoute.self) { RecruitDetailView(recruitId: $0.id) }
         .task { await load() }
         .refreshable { await load() }
     }
@@ -68,11 +69,14 @@ struct FollowUpsView: View {
                     .foregroundStyle(f.isDone ? .secondary : .primary)
                 Text(dueLabel(f)).font(.caption).foregroundStyle(.secondary)
                 if let rid = f.recruitId {
-                    Text(recruitNames[rid] ?? "Recruit #\(rid)")
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 8).padding(.vertical, 2)
-                        .background(Theme.ink.opacity(0.08), in: Capsule())
-                        .foregroundStyle(Theme.ink)
+                    NavigationLink(value: RecruitRoute(id: rid)) {
+                        Text(recruitNames[rid] ?? "Recruit #\(rid)")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 8).padding(.vertical, 2)
+                            .background(Theme.ink.opacity(0.08), in: Capsule())
+                            .foregroundStyle(Theme.ink)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             Spacer()

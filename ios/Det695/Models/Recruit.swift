@@ -53,3 +53,17 @@ struct RecruitOut: Decodable, Identifiable {
 
     var stageValue: RecruitStage { .from(stage) }
 }
+
+/// One transition in a recruit's stage history. `changedAt` is a String because
+/// the shared decoder sets no date strategy (parse via DateDisplay).
+struct StageEvent: Decodable, Identifiable {
+    let id: Int
+    let recruitId: Int
+    var fromStage: String?
+    let toStage: String
+    let changedAt: String
+    var note: String?
+
+    var fromStageValue: RecruitStage? { fromStage.map(RecruitStage.from) }
+    var toStageValue: RecruitStage { .from(toStage) }
+}

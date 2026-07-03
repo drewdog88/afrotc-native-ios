@@ -75,6 +75,15 @@ actor APIClient {
         return try await requestJSON("/recruits", method: "GET", bodyData: nil, authed: true, query: q)
     }
 
+    func recruit(id: Int) async throws -> RecruitOut {
+        try await requestJSON("/recruits/\(id)", method: "GET", bodyData: nil, authed: true)
+    }
+
+    /// A recruit's stage transitions, newest first as returned by the backend.
+    func recruitStageHistory(id: Int) async throws -> [StageEvent] {
+        try await requestJSON("/recruits/\(id)/stage-history", method: "GET", bodyData: nil, authed: true)
+    }
+
     func cadets(search: String? = nil, status: String? = nil,
                 skip: Int = 0, limit: Int = 100) async throws -> Page<CadetOut> {
         var q = [URLQueryItem(name: "skip", value: String(skip)),
@@ -82,6 +91,10 @@ actor APIClient {
         if let search, !search.isEmpty { q.append(URLQueryItem(name: "search", value: search)) }
         if let status, !status.isEmpty { q.append(URLQueryItem(name: "status", value: status)) }
         return try await requestJSON("/cadets", method: "GET", bodyData: nil, authed: true, query: q)
+    }
+
+    func cadet(id: Int) async throws -> CadetOut {
+        try await requestJSON("/cadets/\(id)", method: "GET", bodyData: nil, authed: true)
     }
 
     func contacts(search: String? = nil, isActive: Bool? = nil,

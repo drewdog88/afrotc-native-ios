@@ -4,6 +4,7 @@ import SwiftUI
 /// web dashboard.
 struct DashboardView: View {
     @EnvironmentObject private var session: Session
+    @EnvironmentObject private var router: AppRouter
     @State private var stats: DashboardStats?
     @State private var error: String?
     @State private var loading = false
@@ -38,11 +39,26 @@ struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    StatTile(label: "Recruits in pipeline", value: "\(s.totalRecruits)")
-                    StatTile(label: "Active cadets", value: "\(s.totalCadets)")
-                    StatTile(label: "Open follow-ups", value: "\(s.openFollowups)", accent: true)
-                    StatTile(label: "Commissioned",
-                             value: "\(s.recruitsByStage.first { $0.stageValue == .commissioned }?.count ?? 0)")
+                    Button { router.openRecruits() } label: {
+                        StatTile(label: "Recruits in pipeline", value: "\(s.totalRecruits)")
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { router.openCadets(status: "active") } label: {
+                        StatTile(label: "Active cadets", value: "\(s.totalCadets)")
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { router.openMore(.followups) } label: {
+                        StatTile(label: "Open follow-ups", value: "\(s.openFollowups)", accent: true)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { router.openRecruits(stage: .commissioned) } label: {
+                        StatTile(label: "Commissioned",
+                                 value: "\(s.recruitsByStage.first { $0.stageValue == .commissioned }?.count ?? 0)")
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -51,7 +67,7 @@ struct DashboardView: View {
                     Text("Recruits by stage")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    FunnelChart(stages: s.recruitsByStage)
+                    FunnelChart(stages: s.recruitsByStage, onSelect: { router.openRecruits(stage: $0) })
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -98,6 +114,7 @@ private struct StatTile: View {
 /// Horizontal funnel bars, apex first, width proportional to the largest stage.
 private struct FunnelChart: View {
     let stages: [FunnelStageCount]
+    let onSelect: (RecruitStage) -> Void
 
     private var ordered: [FunnelStageCount] {
         stages
@@ -109,29 +126,34 @@ private struct FunnelChart: View {
     var body: some View {
         VStack(spacing: 8) {
             ForEach(ordered) { item in
-                GeometryReader { geo in
-                    let width = max(CGFloat(item.count) / CGFloat(maxCount) * geo.size.width, 44)
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(.tertiarySystemFill))
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Theme.stageColor(item.stageValue))
-                            .frame(width: width)
-                        HStack {
-                            Text(item.stageValue.label)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.white)
-                            Spacer()
-                            Text("\(item.count)")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(Theme.ink)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(.white, in: Capsule())
+                Button {
+                    onSelect(item.stageValue)
+                } label: {
+                    GeometryReader { geo in
+                        let width = max(CGFloat(item.count) / CGFloat(maxCount) * geo.size.width, 44)
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(.tertiarySystemFill))
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Theme.stageColor(item.stageValue))
+                                .frame(width: width)
+                            HStack {
+                                Text(item.stageValue.label)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                Spacer()
+                                Text("\(item.count)")
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(Theme.ink)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(.white, in: Capsule())
+                            }
+                            .padding(.horizontal, 12)
                         }
-                        .padding(.horizontal, 12)
                     }
                 }
+                .buttonStyle(.plain)
                 .frame(height: 40)
             }
         }

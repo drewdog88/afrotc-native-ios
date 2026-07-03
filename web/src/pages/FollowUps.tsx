@@ -4,6 +4,7 @@
    Follow-ups can be linked to a recruit so a task always has context. */
 import { useMemo, useState, type FormEvent } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import type { components } from "../api/schema";
 import styles from "./FollowUps.module.css";
@@ -292,10 +293,15 @@ function Row({
               : `Due ${fmtDue(followup.due_date)} · ${relativeDue(followup.due_date)}`}
           </span>
           {followup.recruit_id != null && (
-            <span className={styles.linked} title="Linked recruit">
+            <Link
+              to={`/recruits/${followup.recruit_id}`}
+              className={styles.linked}
+              title="Linked recruit"
+              onClick={(e) => e.stopPropagation()}
+            >
               <span className={styles.linkDot} aria-hidden />
               {linkedName ?? `Recruit #${followup.recruit_id}`}
-            </span>
+            </Link>
           )}
         </div>
       </div>
