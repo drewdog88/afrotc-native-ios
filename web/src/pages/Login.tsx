@@ -2,7 +2,7 @@
    Right: the credential form, with a 2FA code field revealed only when the API
    reports it's required. On success, routes to the dashboard. */
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { STAGES } from "../lib/stages";
@@ -132,7 +132,10 @@ export function Login() {
             {busy ? "Signing in…" : "Sign in"}
           </button>
 
-          <p className={styles.hint}>Trouble signing in? Contact a detachment administrator.</p>
+          <p className={styles.hint}>
+            <Link to="/forgot-password">Forgot your password?</Link> · Trouble signing in?
+            Contact a detachment administrator.
+          </p>
         </form>
       </section>
     </div>

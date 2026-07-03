@@ -29,9 +29,12 @@ from app.core.security import (
 from app.models import PasswordHistory, User
 from app.schemas.auth import (
     AccessToken,
+    ForgotPasswordRequest,
     LoginRequest,
     PasswordChange,
     RefreshRequest,
+    ResetPasswordRequest,
+    SecretQuestionOut,
     TokenPair,
     UserOut,
 )
@@ -47,6 +50,31 @@ def _find_user(db: Session, identifier: str) -> User | None:
     return db.scalar(
         select(User).where(or_(User.username == identifier, User.email == identifier))
     )
+
+
+def _reject_password_reuse(db: Session, user: User, new_password: str) -> None:
+    """Raise 400 if the new password matches one retained in history."""
+    recent = db.scalars(
+        select(PasswordHistory)
+        .where(PasswordHistory.user_id == user.id)
+        .order_by(PasswordHistory.created_at.desc())
+        .limit(settings.password_history_size)
+    ).all()
+    if any(verify_password(new_password, h.password_hash) for h in recent):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Password was used within the last {settings.password_history_size} changes",
+        )
+
+
+def _apply_new_password(db: Session, user: User, new_password: str) -> None:
+    """Retire the current password to history and set the new one (no commit)."""
+    db.add(PasswordHistory(user_id=user.id, password_hash=user.password_hash))
+    user.password_hash = hash_password(new_password)
+    user.password_changed_at = now_utc()
+    user.force_password_change = False
+    if not user.is_admin:
+        user.password_expires_at = now_utc() + timedelta(days=settings.password_expiry_days)
 
 
 @router.post("/login", response_model=TokenPair)
@@ -136,25 +164,61 @@ def change_password(
             detail="New password must differ from the current one",
         )
 
-    # Reject reuse within the retained history window.
-    recent = db.scalars(
-        select(PasswordHistory)
-        .where(PasswordHistory.user_id == user.id)
-        .order_by(PasswordHistory.created_at.desc())
-        .limit(settings.password_history_size)
-    ).all()
-    if any(verify_password(body.new_password, h.password_hash) for h in recent):
+    _reject_password_reuse(db, user, body.new_password)
+    _apply_new_password(db, user, body.new_password)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/forgot-password", response_model=SecretQuestionOut)
+def forgot_password(
+    body: ForgotPasswordRequest, db: Session = Depends(get_db)
+) -> SecretQuestionOut:
+    """Return the account's security question so the user can prove ownership.
+
+    Recovery is self-service via the security question every account carries;
+    there is no email dependency. A disabled account is treated as not found so
+    an administrator's deliberate deactivation can't be undone this way.
+    """
+    user = _find_user(db, body.username)
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found for that username or email",
+        )
+    return SecretQuestionOut(secret_question=user.secret_question)
+
+
+@router.post("/reset-password", response_model=UserOut)
+def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)) -> User:
+    """Reset a password after verifying the account's security answer.
+
+    A correct answer also clears any failed-login lockout so the user can sign
+    in immediately. Wrong answers count toward the same lockout as failed
+    logins, so the question can't be brute-forced.
+    """
+    user = _find_user(db, body.username)
+    if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Password was used within the last {settings.password_history_size} changes",
+            detail="Unable to reset password. Check your details or contact an administrator.",
+        )
+    # Trim to mirror how the answer is captured at sign-up.
+    if not verify_password(body.secret_answer.strip(), user.secret_answer_hash):
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= settings.max_failed_logins:
+            user.is_locked = True
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Security answer is incorrect"
         )
 
-    db.add(PasswordHistory(user_id=user.id, password_hash=user.password_hash))
-    user.password_hash = hash_password(body.new_password)
-    user.password_changed_at = now_utc()
-    user.force_password_change = False
-    if not user.is_admin:
-        user.password_expires_at = now_utc() + timedelta(days=settings.password_expiry_days)
+    _reject_password_reuse(db, user, body.new_password)
+    _apply_new_password(db, user, body.new_password)
+    # Recovery clears the lockout so the user can sign in right away.
+    user.is_locked = False
+    user.failed_login_attempts = 0
     db.commit()
     db.refresh(user)
     return user
