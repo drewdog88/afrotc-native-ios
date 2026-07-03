@@ -1,0 +1,14 @@
+# Native iOS app — not part of the web/API deploy
+ios/
+
+# Local Python/Node artifacts (Vercel installs fresh from requirements.txt / package.json)
+.venv/
+backend/.venv/
+backend/alembic/
+web/node_modules/
+web/shots/
+**/__pycache__/
+**/*.pyc
+
+# Screenshots & scratch
+*.png
