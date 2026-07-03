@@ -1,10 +1,6 @@
 import { chromium } from "playwright-core";
-import { existsSync } from "node:fs";
-const CANDS = [
-  `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1187/chrome-mac/Chromium.app/Contents/MacOS/Chromium`,
-  `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1169/chrome-mac/Chromium.app/Contents/MacOS/Chromium`,
-];
-const executablePath = CANDS.find((p) => existsSync(p));
+import { findChromium } from "./chromium.mjs";
+const executablePath = findChromium();
 const BASE = process.env.APP_URL ?? "http://127.0.0.1:5173";
 const browser = await chromium.launch({ executablePath, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });

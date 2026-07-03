@@ -1,7 +1,7 @@
 /* Cadets roster — the enrolled corps behind the recruiting pipeline. Search and
    scope by status, open a cadet to edit their profile, or add a new cadet. Unlike
-   recruits, cadets carry an enrollment status (active vs. unenrolled) with the
-   unenrollment reason/date captured when someone leaves the program. */
+   recruits, cadets carry an enrollment status (active / inactive / graduated) with
+   the unenrollment reason/date captured when someone goes inactive. */
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,8 +14,9 @@ type CadetCreate = components["schemas"]["CadetCreate"];
 type CadetUpdate = components["schemas"]["CadetUpdate"];
 type CadetPage = components["schemas"]["Page_CadetOut_"];
 
-/* Enrollment status identity — local to this screen (not the stage ramp). Green
-   beacon for the active corps, warning red for those who've left. */
+/* Enrollment status identity — local to this screen (not the stage ramp). Mirrors
+   the backend CadetStatus enum (active / inactive / graduated). Green for the active
+   corps, warning red for those who've gone inactive, gold for graduates. */
 interface StatusMeta {
   key: string;
   label: string;
@@ -23,7 +24,8 @@ interface StatusMeta {
 }
 const STATUSES: StatusMeta[] = [
   { key: "active", label: "Active", color: "var(--ok)" },
-  { key: "unenrolled", label: "Unenrolled", color: "var(--danger)" },
+  { key: "inactive", label: "Inactive", color: "var(--danger)" },
+  { key: "graduated", label: "Graduated", color: "var(--accent)" },
 ];
 function statusMeta(key: string): StatusMeta {
   return STATUSES.find((s) => s.key === key) ?? { key, label: key || "—", color: "var(--muted)" };
@@ -436,7 +438,7 @@ function ProfilePanel({ cadet, onSaved }: { cadet: CadetOut; onSaved: () => void
       setError("Enter a valid GPA, or leave it blank.");
       return;
     }
-    const isUnenrolled = form.status === "unenrolled";
+    const isInactive = form.status === "inactive";
     save.mutate({
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
@@ -449,14 +451,14 @@ function ProfilePanel({ cadet, onSaved }: { cadet: CadetOut; onSaved: () => void
       hometown: form.hometown.trim() || null,
       officer_interest: form.officer_interest.trim() || null,
       status: form.status,
-      // Clear the unenrollment fields when the cadet is back to active.
-      unenrollment_reason: isUnenrolled ? form.unenrollment_reason.trim() || null : null,
-      unenrollment_date: isUnenrolled ? form.unenrollment_date || null : null,
+      // Clear the unenrollment fields unless the cadet is inactive.
+      unenrollment_reason: isInactive ? form.unenrollment_reason.trim() || null : null,
+      unenrollment_date: isInactive ? form.unenrollment_date || null : null,
     });
   }
 
   if (!editing) {
-    const unenrolled = cadet.status === "unenrolled";
+    const unenrolled = cadet.status === "inactive";
     return (
       <section className={`card ${styles.panel}`}>
         <div className={styles.panelHead}>
@@ -493,7 +495,7 @@ function ProfilePanel({ cadet, onSaved }: { cadet: CadetOut; onSaved: () => void
     );
   }
 
-  const isUnenrolled = form.status === "unenrolled";
+  const isInactive = form.status === "inactive";
   return (
     <form className={`card ${styles.panel}`} onSubmit={onSubmit}>
       <div className={styles.panelHead}>
@@ -549,7 +551,7 @@ function ProfilePanel({ cadet, onSaved }: { cadet: CadetOut; onSaved: () => void
           <label className="field-label" htmlFor="e_officer_interest">Officer interest</label>
           <input id="e_officer_interest" className="input" value={form.officer_interest} onChange={set("officer_interest")} />
         </div>
-        {isUnenrolled && (
+        {isInactive && (
           <>
             <div className={styles.field}>
               <label className="field-label" htmlFor="e_unenrollment_date">Unenrollment date</label>

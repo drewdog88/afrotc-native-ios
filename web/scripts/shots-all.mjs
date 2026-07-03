@@ -3,14 +3,10 @@
 // test the typecheck can't give us — a screen that mounts with a thrown error
 // shows up here even though it compiled.
 import { chromium } from "playwright-core";
-import { existsSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
+import { findChromium } from "./chromium.mjs";
 
-const CANDIDATES = [
-  `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1187/chrome-mac/Chromium.app/Contents/MacOS/Chromium`,
-  `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1169/chrome-mac/Chromium.app/Contents/MacOS/Chromium`,
-];
-const executablePath = CANDIDATES.find((p) => existsSync(p));
-if (!executablePath) throw new Error("No bundled Chromium found");
+const executablePath = findChromium();
 
 const BASE = process.env.APP_URL ?? "http://127.0.0.1:5173";
 const OUT = "shots";
