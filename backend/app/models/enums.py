@@ -11,6 +11,7 @@ from enum import StrEnum
 class UserRole(StrEnum):
     ADMIN = "admin"
     RECRUITER = "recruiter"
+    VIEWER = "viewer"  # read-only: sees everything, cannot create/edit/delete
 
 
 class SchoolType(StrEnum):

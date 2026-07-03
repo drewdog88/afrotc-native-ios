@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import type { components } from "../api/schema";
 import styles from "./EventDetail.module.css";
 
@@ -53,6 +54,7 @@ export function EventDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { canWrite } = useAuth();
 
   const eventQ = useQuery({
     queryKey: ["event", id],
@@ -115,15 +117,17 @@ export function EventDetail() {
             {event.event_type && <span className={styles.typeTag}>{event.event_type}</span>}
           </div>
         </div>
-        <button
-          className="btn btn-ghost"
-          onClick={() => {
-            if (window.confirm("Remove this event? This can't be undone.")) del.mutate();
-          }}
-          disabled={del.isPending}
-        >
-          {del.isPending ? "Removing…" : "Delete"}
-        </button>
+        {canWrite && (
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              if (window.confirm("Remove this event? This can't be undone.")) del.mutate();
+            }}
+            disabled={del.isPending}
+          >
+            {del.isPending ? "Removing…" : "Delete"}
+          </button>
+        )}
       </div>
 
       {del.isError && (
@@ -176,7 +180,7 @@ export function EventDetail() {
           </div>
         </section>
 
-        <EditPanel event={event} onSaved={invalidateAll} />
+        {canWrite && <EditPanel event={event} onSaved={invalidateAll} />}
       </div>
     </div>
   );

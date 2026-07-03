@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import require_write
 from app.core.database import get_db
 from app.models import PotentialRecruit, RecruitStageEvent, User
 from app.schemas.imports import ImportResult, ImportRowError
@@ -43,7 +43,7 @@ def _parse_file_to_dataframe(file: UploadFile) -> pd.DataFrame:
 @router.post("/import", response_model=ImportResult)
 def import_recruits(
     file: UploadFile = File(...),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> ImportResult:
     """Bulk import potential recruits from a CSV or Excel file.

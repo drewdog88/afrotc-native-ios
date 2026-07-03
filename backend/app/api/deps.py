@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import decode_token
 from app.models import User
+from app.models.enums import UserRole
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -43,6 +44,21 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
     if not user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required"
+        )
+    return user
+
+
+def require_write(user: User = Depends(get_current_user)) -> User:
+    """Gate for data mutations: admins and recruiters pass, viewers are blocked.
+
+    Sign-in, password changes, and a user's own profile/2FA stay open — this
+    only guards create/edit/delete of recruiting data, so a read-only viewer
+    can still log in and manage their own account.
+    """
+    if user.role == UserRole.VIEWER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Read-only account: contact a recruiter or administrator to make changes.",
         )
     return user
 

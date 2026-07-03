@@ -1733,7 +1733,7 @@ export interface components {
          * UserRole
          * @enum {string}
          */
-        UserRole: "admin" | "recruiter";
+        UserRole: "admin" | "recruiter" | "viewer";
         /** ValidationError */
         ValidationError: {
             /** Context */

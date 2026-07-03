@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import type { components } from "../api/schema";
 import styles from "./Contacts.module.css";
 
@@ -44,6 +45,7 @@ function StatusChip({ active, size }: { active: boolean; size?: "sm" }) {
 
 export function Contacts() {
   const navigate = useNavigate();
+  const { canWrite } = useAuth();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ActiveFilter>("all");
   const [creating, setCreating] = useState(false);
@@ -77,9 +79,11 @@ export function Contacts() {
             The high school and university points of contact the detachment recruits through.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setCreating(true)}>
-          Add contact
-        </button>
+        {canWrite && (
+          <button className="btn btn-primary" onClick={() => setCreating(true)}>
+            Add contact
+          </button>
+        )}
       </div>
 
       <div className={styles.toolbar}>
@@ -278,6 +282,7 @@ export function ContactDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { canWrite } = useAuth();
 
   const contactQ = useQuery({
     queryKey: ["contact", id],
@@ -340,6 +345,7 @@ export function ContactDetail() {
         }}
         deleting={remove.isPending}
         deleteError={remove.isError ? (remove.error instanceof ApiError ? remove.error.message : "Couldn't remove the contact.") : null}
+        canWrite={canWrite}
       />
     </div>
   );
@@ -351,12 +357,14 @@ function ProfilePanel({
   onDelete,
   deleting,
   deleteError,
+  canWrite,
 }: {
   contact: ContactOut;
   onSaved: () => void;
   onDelete: () => void;
   deleting: boolean;
   deleteError: string | null;
+  canWrite: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -420,7 +428,9 @@ function ProfilePanel({
       <section className={`card ${styles.panel}`}>
         <div className={styles.panelHead}>
           <h2 className={styles.panelTitle}>Contact details</h2>
-          <button className="btn btn-ghost" onClick={() => setEditing(true)}>Edit</button>
+          {canWrite && (
+            <button className="btn btn-ghost" onClick={() => setEditing(true)}>Edit</button>
+          )}
         </div>
         <div className={styles.fields}>
           <Field label="Title / role" value={contact.contact_title} />
@@ -449,11 +459,13 @@ function ProfilePanel({
         </div>
 
         {deleteError && <div className={styles.formError}>{deleteError}</div>}
-        <div className={styles.dangerRow}>
-          <button className="btn btn-ghost" onClick={onDelete} disabled={deleting}>
-            {deleting ? "Removing…" : "Remove contact"}
-          </button>
-        </div>
+        {canWrite && (
+          <div className={styles.dangerRow}>
+            <button className="btn btn-ghost" onClick={onDelete} disabled={deleting}>
+              {deleting ? "Removing…" : "Remove contact"}
+            </button>
+          </div>
+        )}
       </section>
     );
   }

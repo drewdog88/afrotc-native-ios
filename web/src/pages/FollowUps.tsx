@@ -6,6 +6,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import type { components } from "../api/schema";
 import styles from "./FollowUps.module.css";
 
@@ -70,6 +71,7 @@ function defaultDueLocal(): string {
 
 export function FollowUps() {
   const qc = useQueryClient();
+  const { canWrite } = useAuth();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<FollowUpOut | null>(null);
 
@@ -122,9 +124,11 @@ export function FollowUps() {
             Your recruiting task queue — sorted by what needs attention first.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setCreating(true)}>
-          New follow-up
-        </button>
+        {canWrite && (
+          <button className="btn btn-primary" onClick={() => setCreating(true)}>
+            New follow-up
+          </button>
+        )}
       </div>
 
       {overdueCount > 0 && (
@@ -149,9 +153,11 @@ export function FollowUps() {
             Follow-ups keep every recruit moving. Schedule a call, an email, or a check-in and it
             shows up here the moment it's due.
           </p>
-          <button className="btn btn-primary" onClick={() => setCreating(true)}>
-            New follow-up
-          </button>
+          {canWrite && (
+            <button className="btn btn-primary" onClick={() => setCreating(true)}>
+              New follow-up
+            </button>
+          )}
         </div>
       ) : (
         <div className={styles.groups}>
@@ -165,6 +171,7 @@ export function FollowUps() {
               recruitName={recruitName}
               onChanged={invalidate}
               onEdit={setEditing}
+              canWrite={canWrite}
             />
           ))}
 
@@ -177,6 +184,7 @@ export function FollowUps() {
               recruitName={recruitName}
               onChanged={invalidate}
               onEdit={setEditing}
+              canWrite={canWrite}
             />
           )}
         </div>
@@ -210,6 +218,7 @@ function Group({
   recruitName,
   onChanged,
   onEdit,
+  canWrite,
 }: {
   label: string;
   bucket: Bucket | "done";
@@ -218,6 +227,7 @@ function Group({
   recruitName: Map<number, string>;
   onChanged: () => void;
   onEdit: (followup: FollowUpOut) => void;
+  canWrite: boolean;
 }) {
   // Upcoming/Done empty groups stay hidden to keep the queue tight; Overdue/Today
   // always render so the recruiter sees an explicit "you're clear" signal.
@@ -234,7 +244,7 @@ function Group({
       ) : (
         <ul className={`card ${styles.list}`}>
           {rows.map((f) => (
-            <Row key={f.id} followup={f} bucket={bucket} recruitName={recruitName} onChanged={onChanged} onEdit={onEdit} />
+            <Row key={f.id} followup={f} bucket={bucket} recruitName={recruitName} onChanged={onChanged} onEdit={onEdit} canWrite={canWrite} />
           ))}
         </ul>
       )}
@@ -248,12 +258,14 @@ function Row({
   recruitName,
   onChanged,
   onEdit,
+  canWrite,
 }: {
   followup: FollowUpOut;
   bucket: Bucket | "done";
   recruitName: Map<number, string>;
   onChanged: () => void;
   onEdit: (followup: FollowUpOut) => void;
+  canWrite: boolean;
 }) {
   const isDone = followup.status === "done";
 
@@ -273,29 +285,31 @@ function Row({
 
   return (
     <li className={`${styles.row} ${isDone ? styles.rowDone : ""}`}>
-      <button
-        type="button"
-        className={`${styles.check} ${isDone ? styles.checkDone : ""} ${
-          bucket === "overdue" ? styles.checkOverdue : ""
-        }`}
-        aria-label={isDone ? "Reopen follow-up" : "Mark follow-up done"}
-        aria-pressed={isDone}
-        disabled={busy}
-        onClick={() => mutate.mutate(isDone ? "reopen" : "complete")}
-      >
-        {isDone && (
-          <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden>
-            <path
-              d="M3 8.5l3.2 3.2L13 4.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
-      </button>
+      {canWrite && (
+        <button
+          type="button"
+          className={`${styles.check} ${isDone ? styles.checkDone : ""} ${
+            bucket === "overdue" ? styles.checkOverdue : ""
+          }`}
+          aria-label={isDone ? "Reopen follow-up" : "Mark follow-up done"}
+          aria-pressed={isDone}
+          disabled={busy}
+          onClick={() => mutate.mutate(isDone ? "reopen" : "complete")}
+        >
+          {isDone && (
+            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden>
+              <path
+                d="M3 8.5l3.2 3.2L13 4.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </button>
+      )}
 
       <div className={styles.rowBody}>
         <div className={styles.note}>{followup.note}</div>
@@ -322,25 +336,29 @@ function Row({
         </div>
       </div>
 
-      <button
-        type="button"
-        className={styles.edit}
-        aria-label="Edit follow-up"
-        disabled={busy}
-        onClick={() => onEdit(followup)}
-      >
-        Edit
-      </button>
+      {canWrite && (
+        <>
+          <button
+            type="button"
+            className={styles.edit}
+            aria-label="Edit follow-up"
+            disabled={busy}
+            onClick={() => onEdit(followup)}
+          >
+            Edit
+          </button>
 
-      <button
-        type="button"
-        className={styles.delete}
-        aria-label="Delete follow-up"
-        disabled={busy}
-        onClick={() => mutate.mutate("delete")}
-      >
-        Delete
-      </button>
+          <button
+            type="button"
+            className={styles.delete}
+            aria-label="Delete follow-up"
+            disabled={busy}
+            onClick={() => mutate.mutate("delete")}
+          >
+            Delete
+          </button>
+        </>
+      )}
     </li>
   );
 }

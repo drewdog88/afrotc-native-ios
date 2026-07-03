@@ -17,12 +17,13 @@ type ActivityLogOut = components["schemas"]["ActivityLogOut"];
 type ActivityPage = components["schemas"]["Page_ActivityLogOut_"];
 type UserRole = components["schemas"]["UserRole"];
 
-const ROLES: UserRole[] = ["admin", "recruiter"];
+const ROLES: UserRole[] = ["admin", "recruiter", "viewer"];
 const ACTIVITY_PAGE = 25;
 
 function roleLabel(role: string): string {
   if (role === "admin") return "Admin";
   if (role === "recruiter") return "Recruiter";
+  if (role === "viewer") return "Viewer (read-only)";
   return role;
 }
 
