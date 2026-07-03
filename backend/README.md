@@ -3,22 +3,24 @@
 Headless JSON API that powers both the React web app and the SwiftUI iOS app.
 
 ## Stack
-FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2 · JWT (python-jose) · passlib/bcrypt · Neon PostgreSQL (SQLite for local dev).
+FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2 · JWT (python-jose) · bcrypt · pyotp (TOTP) · Neon PostgreSQL.
 
 ## Quickstart
 
 ```bash
 cd backend
-cp .env.example .env          # then edit SECRET_KEY, ENCRYPTION_KEY, BOOTSTRAP_ADMIN_PASSWORD
+cp .env.example .env          # then edit DATABASE_URL (Neon), SECRET_KEY, ENCRYPTION_KEY, BOOTSTRAP_ADMIN_PASSWORD
 uv sync --extra dev           # create venv + install deps
+uv run alembic upgrade head   # create the schema (against the direct, non-pooled Neon host)
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
 Open http://localhost:8000/docs for the interactive OpenAPI docs.
 
-Local dev uses a SQLite file (`afrotc695.db`) by default and auto-creates the
-schema on startup. Point `DATABASE_URL` at Neon to use Postgres (migrations via
-Alembic).
+**Postgres only — no local/SQLite fallback.** `DATABASE_URL` must be a
+`postgresql` URL (the config validator rejects anything else). The schema is owned
+entirely by Alembic; the app never auto-creates tables. See the
+[Database wiki page](https://github.com/drewdog88/afrotc-native-ios/wiki/Database).
 
 ## Layout
 ```
