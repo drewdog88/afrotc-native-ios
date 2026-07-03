@@ -1,0 +1,81 @@
+name: DB Backup (Neon → GitHub Release)
+
+# Free, plan-independent backup for Neon: a nightly pg_dump stored as a dated
+# GitHub Release asset. Neon's own PITR/scheduled backups require a paid plan;
+# this does not. See BACKUP.md for restore instructions.
+#
+# Security note: the DB URL and GitHub token are passed only via env: (never
+# interpolated into a run: command), and this workflow consumes no untrusted
+# external input (no issue/PR/comment text), so it is not injectable.
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # 09:00 UTC nightly ≈ 02:00 America/Los_Angeles
+  workflow_dispatch: {} # allow manual runs (Actions tab → Run workflow)
+
+# Never let two backup runs overlap.
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: write # needed to create Releases and their tags
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      KEEP: 14 # how many most-recent backup releases to retain
+    steps:
+      - name: Install PostgreSQL 17 client (matches Neon server major)
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          pg_dump --version
+
+      - name: Dump database
+        env:
+          # Direct (non-pooled) Neon connection string; sslmode=require.
+          PGCONN: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          if [ -z "$PGCONN" ]; then
+            echo "::error::BACKUP_DATABASE_URL secret is not set."
+            exit 1
+          fi
+          STAMP="$(date -u +%Y%m%d-%H%M%S)"
+          FILE="det695-${STAMP}.dump"
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          echo "FILE=$FILE"   >> "$GITHUB_ENV"
+          # Custom format (-Fc): compressed and restorable with pg_restore.
+          pg_dump "$PGCONN" -Fc --no-owner --no-privileges -f "$FILE"
+          SIZE=$(stat -c%s "$FILE")
+          echo "Dump size: ${SIZE} bytes"
+          if [ "$SIZE" -lt 1024 ]; then
+            echo "::error::Dump is suspiciously small (${SIZE} bytes) — aborting."
+            exit 1
+          fi
+
+      - name: Publish backup as a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="backup-${STAMP}"
+          gh release create "$TAG" "$FILE" \
+            --title "DB backup ${STAMP}" \
+            --prerelease \
+            --notes "Automated nightly Neon pg_dump (custom format). Restore into a fresh database with: pg_restore --no-owner --no-privileges -d \"\$TARGET_DATABASE_URL\" ${FILE}"
+
+      - name: Prune old backups (keep newest KEEP)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # List backup-* tags newest-first, skip the newest $KEEP, delete the rest.
+          gh release list --limit 200 --json tagName,createdAt \
+            --jq 'map(select(.tagName|startswith("backup-"))) | sort_by(.createdAt) | reverse | .['"$KEEP"':] | .[].tagName' \
+            | while read -r old; do
+                [ -n "$old" ] || continue
+                echo "Deleting old backup release: $old"
+                gh release delete "$old" --cleanup-tag --yes
+              done
