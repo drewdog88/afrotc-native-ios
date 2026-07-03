@@ -13,6 +13,7 @@ struct ContactsView: View {
     @State private var activeFilter: Bool?
     @State private var error: String?
     @State private var loading = false
+    @State private var showingCreate = false
 
     var body: some View {
         List {
@@ -40,6 +41,16 @@ struct ContactsView: View {
                 } label: {
                     Label(filterLabel, systemImage: "line.3.horizontal.decrease.circle")
                 }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showingCreate = true } label: {
+                    Label("Add", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingCreate) {
+            ContactEditSheet(mode: .create) {
+                await load()
             }
         }
         .task(id: filterKey) { await load() }
@@ -86,6 +97,9 @@ struct ContactDetailView: View {
     let contactId: Int
     @State private var contact: ContactOut?
     @State private var error: String?
+    @State private var showingEdit = false
+    @State private var showingDeleteConfirm = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         Group {
@@ -116,6 +130,14 @@ struct ContactDetailView: View {
                         LabeledRow("Added", DateDisplay.mediumDate(c.createdAt))
                         LabeledRow("Updated", DateDisplay.mediumDate(c.lastModified))
                     }
+                    Section {
+                        Button(role: .destructive) {
+                            showingDeleteConfirm = true
+                        } label: {
+                            Label("Delete contact", systemImage: "trash")
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
                 }
             } else if let error {
                 ContentUnavailableView("Couldn't load", systemImage: "exclamationmark.triangle",
@@ -126,12 +148,43 @@ struct ContactDetailView: View {
         }
         .navigationTitle(contact?.contactName ?? "Contact")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if contact != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Edit") { showingEdit = true }
+                }
+            }
+        }
+        .sheet(isPresented: $showingEdit) {
+            if let c = contact {
+                ContactEditSheet(mode: .edit(c)) {
+                    await load()
+                }
+            }
+        }
+        .confirmationDialog("Delete this contact?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                Task { await deleteContact() }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This action cannot be undone.")
+        }
         .task { await load() }
     }
 
     private func load() async {
         do { contact = try await APIClient.shared.contact(id: contactId) }
         catch { self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription }
+    }
+
+    private func deleteContact() async {
+        do {
+            try await APIClient.shared.deleteContact(id: contactId)
+            dismiss()
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
     }
 }
 
@@ -161,5 +214,147 @@ struct LinkRow: View {
             Spacer()
             if let url { Link(value, destination: url) } else { Text(value) }
         }
+    }
+}
+
+/// Shared sheet for creating or editing a contact.
+struct ContactEditSheet: View {
+    enum Mode {
+        case create
+        case edit(ContactOut)
+    }
+
+    let mode: Mode
+    let onSave: () async -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var universityName = ""
+    @State private var contactName = ""
+    @State private var email = ""
+    @State private var contactTitle = ""
+    @State private var phone = ""
+    @State private var address = ""
+    @State private var notes = ""
+    @State private var isActive = true
+    @State private var saving = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if let error {
+                    Section {
+                        Text(error).foregroundStyle(Theme.danger)
+                    }
+                }
+
+                Section("Required") {
+                    TextField("University/School Name", text: $universityName)
+                    TextField("Contact Name", text: $contactName)
+                    TextField("Email", text: $email)
+                        .keyboardType(.emailAddress)
+                        .autocapitalization(.none)
+                }
+
+                Section("Optional") {
+                    TextField("Contact Title", text: $contactTitle)
+                    TextField("Phone", text: $phone)
+                        .keyboardType(.phonePad)
+                    TextField("Address", text: $address)
+                    Toggle("Active", isOn: $isActive)
+                }
+
+                Section("Notes") {
+                    TextField("Notes", text: $notes, axis: .vertical)
+                        .lineLimit(4...8)
+                }
+            }
+            .navigationTitle(mode.isCreate ? "New Contact" : "Edit Contact")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task { await save() }
+                    }
+                    .disabled(saving || !isValid)
+                }
+            }
+            .onAppear {
+                if case let .edit(contact) = mode {
+                    universityName = contact.universityName
+                    contactName = contact.contactName
+                    email = contact.email
+                    contactTitle = contact.contactTitle ?? ""
+                    phone = contact.phone ?? ""
+                    address = contact.address ?? ""
+                    notes = contact.notes ?? ""
+                    isActive = contact.isActive
+                }
+            }
+        }
+    }
+
+    private var isValid: Bool {
+        !universityName.trimmingCharacters(in: .whitespaces).isEmpty &&
+        !contactName.trimmingCharacters(in: .whitespaces).isEmpty &&
+        !email.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private func save() async {
+        saving = true
+        error = nil
+        defer { saving = false }
+
+        do {
+            switch mode {
+            case .create:
+                let input = ContactCreateInput(
+                    universityName: universityName.trimmingCharacters(in: .whitespaces),
+                    contactName: contactName.trimmingCharacters(in: .whitespaces),
+                    email: email.trimmingCharacters(in: .whitespaces),
+                    isActive: isActive,
+                    contactTitle: contactTitle.trimmingCharacters(in: .whitespaces).nilIfEmpty,
+                    phone: phone.trimmingCharacters(in: .whitespaces).nilIfEmpty,
+                    address: address.trimmingCharacters(in: .whitespaces).nilIfEmpty,
+                    notes: notes.trimmingCharacters(in: .whitespaces).nilIfEmpty
+                )
+                _ = try await APIClient.shared.createContact(input)
+
+            case .edit(let contact):
+                let input = ContactUpdateInput(
+                    universityName: universityName.trimmingCharacters(in: .whitespaces),
+                    contactName: contactName.trimmingCharacters(in: .whitespaces),
+                    email: email.trimmingCharacters(in: .whitespaces),
+                    isActive: isActive,
+                    contactTitle: contactTitle.trimmingCharacters(in: .whitespaces).nilIfEmpty,
+                    phone: phone.trimmingCharacters(in: .whitespaces).nilIfEmpty,
+                    address: address.trimmingCharacters(in: .whitespaces).nilIfEmpty,
+                    notes: notes.trimmingCharacters(in: .whitespaces).nilIfEmpty
+                )
+                _ = try await APIClient.shared.updateContact(id: contact.id, input)
+            }
+
+            dismiss()
+            await onSave()
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+}
+
+extension ContactEditSheet.Mode {
+    var isCreate: Bool {
+        if case .create = self { return true }
+        return false
+    }
+}
+
+extension String {
+    var nilIfEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

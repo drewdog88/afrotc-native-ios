@@ -64,6 +64,14 @@ export function RecruitDetail() {
     },
   });
 
+  const remove = useMutation({
+    mutationFn: () => api.del(`/recruits/${id}`),
+    onSuccess: () => {
+      invalidateAll();
+      navigate("/recruits");
+    },
+  });
+
   if (recruitQ.isLoading) {
     return (
       <div className={styles.page}>
@@ -97,7 +105,24 @@ export function RecruitDetail() {
             {recruit.current_school && <span className={styles.empty}>{recruit.current_school}</span>}
           </div>
         </div>
+        <button
+          className="btn btn-ghost"
+          onClick={() => {
+            if (window.confirm(`Delete ${recruit.full_name}? This can't be undone.`)) {
+              remove.mutate();
+            }
+          }}
+          disabled={remove.isPending}
+        >
+          {remove.isPending ? "Deleting…" : "Delete recruit"}
+        </button>
       </div>
+
+      {remove.isError && (
+        <div className={styles.formError}>
+          {remove.error instanceof ApiError ? remove.error.message : "Couldn't delete this recruit."}
+        </div>
+      )}
 
       <div className={styles.grid}>
         {/* Left: stage control + editable profile */}
