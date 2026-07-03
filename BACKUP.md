@@ -70,10 +70,29 @@ proves it, automatically:
 If a drill ever goes red, the newest backup is suspect — investigate before you
 need it.
 
-## Restore for real (recovery runbook)
+## Restore for real — the easy way (one click, in the browser)
 
-Use this when you actually need the data back (corruption, bad migration, dropped
-rows). You restore into a **fresh target**, verify, then promote it.
+**`.github/workflows/restore.yml`** does a full recovery with no laptop and no crypto
+by hand: Actions tab → *Restore backup to new Neon branch* → **Run workflow**, pick a
+backup tag (blank = newest), Run. It creates a **fresh Neon branch**, decrypts the
+backup with `BACKUP_AGE_KEY`, restores into that branch, and prints per-table row
+counts in the run **Summary**. It **never touches your live database** — the data
+lands in a new branch.
+
+If the summary looks right, **promote** it: in the Neon console open that branch,
+copy its **POOLED** connection string, set Vercel's `DATABASE_URL` to it (driver
+`postgresql+psycopg://`, `-pooler` host, `?sslmode=require`), and redeploy. Delete
+the branch when you're done. If it looks wrong, just delete the branch — nothing
+live was changed.
+
+> Needs the `NEON_API` secret (already set). If you have more than one Neon project,
+> also set a `NEON_PROJECT_ID` repo variable so it knows which one; with a single
+> project it auto-detects.
+
+## Restore for real — by hand (recovery runbook)
+
+Prefer the one-click workflow above. Use these steps if you'd rather drive it from
+your Mac. You restore into a **fresh target**, verify, then promote it.
 
 **Prerequisites:** `gh` authenticated to github.com; `pg_restore`/`psql` **≥ 17**
 (macOS: `brew install libpq && brew link --force libpq`); `age` (macOS: `brew install age`)
