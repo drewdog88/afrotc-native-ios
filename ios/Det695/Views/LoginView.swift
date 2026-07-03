@@ -14,8 +14,8 @@ struct LoginView: View {
         ZStack {
             Theme.ink.ignoresSafeArea()
             VStack(spacing: 24) {
-                VStack(spacing: 6) {
-                    Insignia(size: 56, base: .white)
+                VStack(spacing: 10) {
+                    Insignia(size: 132)
                     Text("Det 695")
                         .font(.largeTitle.bold())
                         .foregroundStyle(.white)
@@ -23,6 +23,9 @@ struct LoginView: View {
                         .font(.caption.weight(.semibold))
                         .tracking(2)
                         .foregroundStyle(Theme.accent)
+                    AFROTCWordmark(height: 26)
+                        .foregroundStyle(.white.opacity(0.9))
+                        .padding(.top, 2)
                 }
 
                 VStack(spacing: 12) {
