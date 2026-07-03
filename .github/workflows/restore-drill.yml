@@ -48,20 +48,27 @@ jobs:
     env:
       TARGET: postgresql://postgres:drill@localhost:5432/restore_target
     steps:
-      - name: Install PostgreSQL 17 client
+      - name: Install PostgreSQL 17 client + age
         run: |
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17
+          sudo apt-get install -y -qq postgresql-client-17 age
           # Put the 17 binaries first (the /usr/bin wrapper defaults to client 16).
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
 
-      - name: Download backup to test
+      - name: Download + decrypt backup to test
         env:
           GH_TOKEN: ${{ github.token }}
           INPUT_TAG: ${{ github.event.inputs.tag }}
+          # PRIVATE age key (age identity, "AGE-SECRET-KEY-1..."), held only here.
+          AGE_KEY: ${{ secrets.BACKUP_AGE_KEY }}
         run: |
+          if [ -z "$AGE_KEY" ]; then
+            echo "::error::BACKUP_AGE_KEY secret is not set — cannot decrypt the backup."
+            echo "::error::See BACKUP.md → 'One-time setup'."
+            exit 1
+          fi
           TAG="$INPUT_TAG"
           if [ -z "$TAG" ]; then
             TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName,createdAt \
@@ -70,11 +77,16 @@ jobs:
           if [ -z "$TAG" ]; then echo "::error::No backup-* release found to test."; exit 1; fi
           echo "Testing backup: $TAG"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.dump' --dir .
-          DUMP="$(ls *.dump)"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.dump.age' --dir .
+          ENC="$(ls *.dump.age)"
+          # Write the identity to a private file (ephemeral runner), decrypt, remove it.
+          umask 077; printf '%s\n' "$AGE_KEY" > age.key
+          DUMP="${ENC%.age}"
+          age -d -i age.key -o "$DUMP" "$ENC"
+          rm -f age.key
           echo "DUMP=$DUMP" >> "$GITHUB_ENV"
           SIZE=$(stat -c%s "$DUMP")
-          echo "Dump: $DUMP (${SIZE} bytes)"
+          echo "Decrypted dump: $DUMP (${SIZE} bytes)"
           [ "$SIZE" -ge 1024 ] || { echo "::error::Dump suspiciously small (${SIZE} bytes)."; exit 1; }
 
       - name: Validate the archive is well-formed

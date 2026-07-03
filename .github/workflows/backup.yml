@@ -1,8 +1,15 @@
 name: DB Backup (Neon → GitHub Release)
 
-# Free, plan-independent backup for Neon: a nightly pg_dump stored as a dated
-# GitHub Release asset. Neon's own PITR/scheduled backups require a paid plan;
-# this does not. See BACKUP.md for restore instructions.
+# Free, plan-independent backup for Neon: a nightly pg_dump, AGE-ENCRYPTED, stored
+# as a dated GitHub Release asset. Neon's own PITR/scheduled backups require a paid
+# plan; this does not. See BACKUP.md for setup + restore instructions.
+#
+# Encryption: this repo is PUBLIC, so Release assets are world-downloadable. The
+# dump therefore never leaves this job unencrypted — it is encrypted to the age
+# recipient in the AGE_PUBLIC_KEY repo variable before upload. Only the holder of
+# the matching private key (the BACKUP_AGE_KEY secret / your password manager) can
+# decrypt it. Encryption needs only the PUBLIC key, so this job holds no decrypt
+# secret at all. If AGE_PUBLIC_KEY is unset the job FAILS rather than upload plaintext.
 #
 # Security note: the DB URL and GitHub token are passed only via env: (never
 # interpolated into a run: command), and this workflow consumes no untrusted
@@ -38,6 +45,9 @@ jobs:
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
           /usr/lib/postgresql/17/bin/pg_dump --version
 
+      - name: Install age (encryption)
+        run: sudo apt-get install -y -qq age && age --version
+
       - name: Dump database
         env:
           # Direct (non-pooled) Neon connection string; sslmode=require.
@@ -60,16 +70,34 @@ jobs:
             exit 1
           fi
 
+      - name: Encrypt the dump (age → *.dump.age)
+        env:
+          # PUBLIC age recipient (age1...). Not a secret; set as a repo VARIABLE.
+          AGE_PUBLIC_KEY: ${{ vars.AGE_PUBLIC_KEY }}
+        run: |
+          if [ -z "$AGE_PUBLIC_KEY" ]; then
+            echo "::error::AGE_PUBLIC_KEY variable is not set. Refusing to upload an"
+            echo "::error::unencrypted dump to a PUBLIC repo. See BACKUP.md → 'One-time setup'."
+            exit 1
+          fi
+          ENC="${FILE}.age"
+          echo "ENC=$ENC" >> "$GITHUB_ENV"
+          age -r "$AGE_PUBLIC_KEY" -o "$ENC" "$FILE"
+          rm -f "$FILE"   # never keep the plaintext around
+          ESIZE=$(stat -c%s "$ENC")
+          echo "Encrypted size: ${ESIZE} bytes"
+          [ "$ESIZE" -ge 512 ] || { echo "::error::Encrypted file suspiciously small."; exit 1; }
+
       - name: Publish backup as a GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="backup-${STAMP}"
-          gh release create "$TAG" "$FILE" \
+          gh release create "$TAG" "$ENC" \
             --repo "$GITHUB_REPOSITORY" \
             --title "DB backup ${STAMP}" \
             --prerelease \
-            --notes "Automated nightly Neon pg_dump (custom format). Restore into a fresh database with: pg_restore --no-owner --no-privileges -d \"\$TARGET_DATABASE_URL\" ${FILE}"
+            --notes "Automated nightly Neon pg_dump (custom format), age-encrypted. Decrypt then restore: age -d -i KEYFILE ${ENC} > det695.dump && pg_restore --no-owner --no-privileges -d \"\$TARGET_DATABASE_URL\" det695.dump  —  or just run scripts/restore.sh. See BACKUP.md."
 
       - name: Prune old backups (keep newest KEEP)
         env:
