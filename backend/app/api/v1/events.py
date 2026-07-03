@@ -10,7 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import Pagination, get_current_user, pagination
+from app.api.deps import Pagination, get_current_user, pagination, require_write
 from app.core.database import get_db
 from app.models import RecruitmentEvent, User
 from app.schemas.common import Page
@@ -63,7 +63,7 @@ def get_event(
 @router.post("", response_model=EventOut, status_code=status.HTTP_201_CREATED)
 def create_event(
     body: EventCreate,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> RecruitmentEvent:
     return crud.create(db, body.model_dump())
@@ -73,7 +73,7 @@ def create_event(
 def update_event(
     event_id: int,
     body: EventUpdate,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> RecruitmentEvent:
     event = _get_or_404(db, event_id)
@@ -83,7 +83,7 @@ def update_event(
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_event(
     event_id: int,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     event = _get_or_404(db, event_id)

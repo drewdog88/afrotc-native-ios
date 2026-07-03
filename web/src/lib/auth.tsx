@@ -7,6 +7,8 @@ import { api, tokens, type UserOut } from "./api";
 interface AuthState {
   user: UserOut | null;
   loading: boolean;
+  /** False for the read-only "viewer" role; gates create/edit/delete UI. */
+  canWrite: boolean;
   login: (username: string, password: string, totp?: string) => Promise<UserOut>;
   logout: () => Promise<void>;
 }
@@ -50,7 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
+  const canWrite = user != null && user.role !== "viewer";
+
+  return (
+    <AuthContext.Provider value={{ user, loading, canWrite, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthState {

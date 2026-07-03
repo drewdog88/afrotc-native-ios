@@ -49,9 +49,15 @@ function initials(user: { username: string; full_name?: string | null }): string
 }
 
 export function AppShell() {
-  const { user, logout } = useAuth();
+  const { user, logout, canWrite } = useAuth();
   const location = useLocation();
   const current = ALL_ITEMS.find((i) => location.pathname.startsWith(i.to));
+
+  // Bulk import is a write-only flow — hide it from read-only viewers.
+  const nav = NAV.map((group) => ({
+    ...group,
+    items: group.items.filter((i) => canWrite || i.to !== "/import"),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <div className={styles.shell}>
@@ -65,7 +71,7 @@ export function AppShell() {
         </div>
 
         <nav className={styles.nav}>
-          {NAV.map((group) => (
+          {nav.map((group) => (
             <div key={group.group}>
               <div className={styles.navGroup}>{group.group}</div>
               {group.items.map((item) => (

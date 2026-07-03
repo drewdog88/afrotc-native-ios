@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import type { components } from "../api/schema";
 import styles from "./Cadets.module.css";
 
@@ -56,6 +57,7 @@ function toDateInput(iso: string | null | undefined): string {
 
 export function Cadets() {
   const navigate = useNavigate();
+  const { canWrite } = useAuth();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -80,9 +82,11 @@ export function Cadets() {
           <h1 className={styles.title}>Cadets</h1>
           <p className={styles.subtitle}>The enrolled corps — search the roster or add a cadet.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setCreating(true)}>
-          Add cadet
-        </button>
+        {canWrite && (
+          <button className="btn btn-primary" onClick={() => setCreating(true)}>
+            Add cadet
+          </button>
+        )}
       </div>
 
       <div className={styles.toolbar}>
@@ -309,6 +313,7 @@ export function CadetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { canWrite } = useAuth();
 
   const cadetQ = useQuery({
     queryKey: ["cadet", id],
@@ -362,17 +367,19 @@ export function CadetDetail() {
             {cadet.cadet_rank && <span className={styles.empty}>{cadet.cadet_rank}</span>}
           </div>
         </div>
-        <button
-          className="btn btn-ghost"
-          onClick={() => {
-            if (window.confirm(`Remove ${cadet.full_name} from the roster? This can't be undone.`)) {
-              remove.mutate();
-            }
-          }}
-          disabled={remove.isPending}
-        >
-          {remove.isPending ? "Removing…" : "Remove"}
-        </button>
+        {canWrite && (
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              if (window.confirm(`Remove ${cadet.full_name} from the roster? This can't be undone.`)) {
+                remove.mutate();
+              }
+            }}
+            disabled={remove.isPending}
+          >
+            {remove.isPending ? "Removing…" : "Remove"}
+          </button>
+        )}
       </div>
 
       {remove.isError && (
@@ -381,12 +388,12 @@ export function CadetDetail() {
         </div>
       )}
 
-      <ProfilePanel cadet={cadet} onSaved={invalidateAll} />
+      <ProfilePanel cadet={cadet} onSaved={invalidateAll} canWrite={canWrite} />
     </div>
   );
 }
 
-function ProfilePanel({ cadet, onSaved }: { cadet: CadetOut; onSaved: () => void }) {
+function ProfilePanel({ cadet, onSaved, canWrite }: { cadet: CadetOut; onSaved: () => void; canWrite: boolean }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -463,7 +470,9 @@ function ProfilePanel({ cadet, onSaved }: { cadet: CadetOut; onSaved: () => void
       <section className={`card ${styles.panel}`}>
         <div className={styles.panelHead}>
           <h2 className={styles.panelTitle}>Profile</h2>
-          <button className="btn btn-ghost" onClick={() => setEditing(true)}>Edit</button>
+          {canWrite && (
+            <button className="btn btn-ghost" onClick={() => setEditing(true)}>Edit</button>
+          )}
         </div>
         <div className={styles.fields}>
           <Field label="Email" value={cadet.email} />

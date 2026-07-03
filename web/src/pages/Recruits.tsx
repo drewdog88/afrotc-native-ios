@@ -7,6 +7,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { api, ApiError, type RecruitCreate, type RecruitOut, type RecruitPage } from "../lib/api";
 import { STAGES, DECLINED, stageMeta } from "../lib/stages";
 import { StageChip } from "../components/StageChip";
+import { useAuth } from "../lib/auth";
 import styles from "./Recruits.module.css";
 
 const ALL_STAGES = [...STAGES, DECLINED];
@@ -19,6 +20,7 @@ function schoolLabel(t: string | null | undefined): string {
 
 export function Recruits() {
   const navigate = useNavigate();
+  const { canWrite } = useAuth();
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -43,9 +45,11 @@ export function Recruits() {
           <h1 className={styles.title}>Recruits</h1>
           <p className={styles.subtitle}>Every prospect in the pipeline — advance a recruit to move the funnel.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setCreating(true)}>
-          Add recruit
-        </button>
+        {canWrite && (
+          <button className="btn btn-primary" onClick={() => setCreating(true)}>
+            Add recruit
+          </button>
+        )}
       </div>
 
       <div className={styles.toolbar}>

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import Pagination, get_current_user, pagination
+from app.api.deps import Pagination, get_current_user, pagination, require_write
 from app.core.config import settings
 from app.core.database import get_db
 from app.models import ExternalLink, RecruitmentDocument, User
@@ -79,7 +79,7 @@ def list_links(
 @router.post("/links", response_model=LinkOut, status_code=status.HTTP_201_CREATED)
 def create_link(
     body: LinkCreate,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> ExternalLink:
     # mode="json" serializes HttpUrl -> str so it fits the String column.
@@ -90,7 +90,7 @@ def create_link(
 def update_link(
     link_id: int,
     body: LinkUpdate,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> ExternalLink:
     link = _get_link_or_404(db, link_id)
@@ -100,7 +100,7 @@ def update_link(
 @router.delete("/links/{link_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_link(
     link_id: int,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     link = _get_link_or_404(db, link_id)
@@ -139,7 +139,7 @@ async def upload_document(
     title: str = "",
     description: str = "",
     category: str = "general",
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> RecruitmentDocument:
     # Read file bytes
@@ -212,7 +212,7 @@ async def download_document(
 @router.delete("/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_document(
     doc_id: int,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     doc = _get_doc_or_404(db, doc_id)

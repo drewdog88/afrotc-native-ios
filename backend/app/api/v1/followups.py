@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import Pagination, get_current_user, pagination
+from app.api.deps import Pagination, get_current_user, pagination, require_write
 from app.core.database import get_db
 from app.core.security import now_utc
 from app.models import FollowUp, FollowUpStatus, User
@@ -91,7 +91,7 @@ def get_followup(
 @router.post("", response_model=FollowUpOut, status_code=status.HTTP_201_CREATED)
 def create_followup(
     body: FollowUpCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> FollowUp:
     data = body.model_dump()
@@ -106,7 +106,7 @@ def create_followup(
 def update_followup(
     followup_id: int,
     body: FollowUpUpdate,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> FollowUp:
     followup = _get_or_404(db, followup_id)
@@ -120,7 +120,7 @@ def update_followup(
 @router.delete("/{followup_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_followup(
     followup_id: int,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     followup = _get_or_404(db, followup_id)
@@ -130,7 +130,7 @@ def delete_followup(
 @router.post("/{followup_id}/complete", response_model=FollowUpOut)
 def complete_followup(
     followup_id: int,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> FollowUp:
     followup = _get_or_404(db, followup_id)

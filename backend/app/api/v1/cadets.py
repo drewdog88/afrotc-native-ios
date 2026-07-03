@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import Pagination, get_current_user, pagination
+from app.api.deps import Pagination, get_current_user, pagination, require_write
 from app.core.database import get_db
 from app.models import Cadet, User
 from app.schemas.cadet import CadetCreate, CadetOut, CadetUpdate
@@ -57,7 +57,7 @@ def get_cadet(
 @router.post("", response_model=CadetOut, status_code=status.HTTP_201_CREATED)
 def create_cadet(
     body: CadetCreate,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> Cadet:
     return crud.create(db, body.model_dump())
@@ -67,7 +67,7 @@ def create_cadet(
 def update_cadet(
     cadet_id: int,
     body: CadetUpdate,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> Cadet:
     cadet = _get_or_404(db, cadet_id)
@@ -77,7 +77,7 @@ def update_cadet(
 @router.delete("/{cadet_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_cadet(
     cadet_id: int,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     cadet = _get_or_404(db, cadet_id)

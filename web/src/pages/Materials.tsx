@@ -5,6 +5,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import type { components } from "../api/schema";
 import styles from "./Materials.module.css";
 
@@ -42,6 +43,7 @@ function hostOf(url: string): string {
 }
 
 export function Materials() {
+  const { canWrite } = useAuth();
   const [tab, setTab] = useState<Tab>("documents");
   const [search, setSearch] = useState("");
 
@@ -85,9 +87,9 @@ export function Materials() {
       </div>
 
       {tab === "documents" ? (
-        <DocumentsPanel search={search.trim()} />
+        <DocumentsPanel search={search.trim()} canWrite={canWrite} />
       ) : (
-        <LinksPanel search={search.trim()} />
+        <LinksPanel search={search.trim()} canWrite={canWrite} />
       )}
     </div>
   );
@@ -95,7 +97,7 @@ export function Materials() {
 
 /* ---------------- Documents ---------------- */
 
-function DocumentsPanel({ search }: { search: string }) {
+function DocumentsPanel({ search, canWrite }: { search: string; canWrite: boolean }) {
   const qc = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
@@ -143,9 +145,11 @@ function DocumentsPanel({ search }: { search: string }) {
     <>
       <div className={styles.panelHead}>
         <span className={styles.eyebrow}>Documents</span>
-        <button className="btn btn-primary" onClick={() => setUploading(true)}>
-          Add document
-        </button>
+        {canWrite && (
+          <button className="btn btn-primary" onClick={() => setUploading(true)}>
+            Add document
+          </button>
+        )}
       </div>
 
       {downloadError && <div className={styles.formError}>{downloadError}</div>}
@@ -182,21 +186,23 @@ function DocumentsPanel({ search }: { search: string }) {
                   <td className={styles.right}>
                     <div className={styles.rowActions}>
                       <button
-                        className="btn btn-ghost"
+                        className=”btn btn-ghost”
                         onClick={() => download(doc)}
                         disabled={downloadingId === doc.id}
                       >
-                        {downloadingId === doc.id ? "Preparing…" : "Download"}
+                        {downloadingId === doc.id ? “Preparing…” : “Download”}
                       </button>
-                      <button
-                        className={`btn btn-ghost ${styles.dangerBtn}`}
-                        onClick={() => {
-                          if (window.confirm(`Delete “${doc.title}”? This can't be undone.`)) del.mutate(doc.id);
-                        }}
-                        disabled={del.isPending}
-                      >
-                        Delete
-                      </button>
+                      {canWrite && (
+                        <button
+                          className={`btn btn-ghost ${styles.dangerBtn}`}
+                          onClick={() => {
+                            if (window.confirm(`Delete “${doc.title}”? This can't be undone.`)) del.mutate(doc.id);
+                          }}
+                          disabled={del.isPending}
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -327,7 +333,7 @@ function UploadDrawer({ onClose }: { onClose: () => void }) {
 
 /* ---------------- Links ---------------- */
 
-function LinksPanel({ search }: { search: string }) {
+function LinksPanel({ search, canWrite }: { search: string; canWrite: boolean }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<LinkOut | null>(null);
   const [adding, setAdding] = useState(false);
@@ -353,9 +359,11 @@ function LinksPanel({ search }: { search: string }) {
     <>
       <div className={styles.panelHead}>
         <span className={styles.eyebrow}>Links</span>
-        <button className="btn btn-primary" onClick={() => setAdding(true)}>
-          Add link
-        </button>
+        {canWrite && (
+          <button className="btn btn-primary" onClick={() => setAdding(true)}>
+            Add link
+          </button>
+        )}
       </div>
 
       <section className={`card ${styles.tableWrap}`}>
@@ -392,25 +400,29 @@ function LinksPanel({ search }: { search: string }) {
                   <td className={styles.right}>
                     <div className={styles.rowActions}>
                       <a
-                        className="btn btn-ghost"
+                        className=”btn btn-ghost”
                         href={link.url}
-                        target="_blank"
-                        rel="noreferrer noopener"
+                        target=”_blank”
+                        rel=”noreferrer noopener”
                       >
                         Open
                       </a>
-                      <button className="btn btn-ghost" onClick={() => setEditing(link)}>
-                        Edit
-                      </button>
-                      <button
-                        className={`btn btn-ghost ${styles.dangerBtn}`}
-                        onClick={() => {
-                          if (window.confirm(`Delete “${link.title}”?`)) del.mutate(link.id);
-                        }}
-                        disabled={del.isPending}
-                      >
-                        Delete
-                      </button>
+                      {canWrite && (
+                        <>
+                          <button className=”btn btn-ghost” onClick={() => setEditing(link)}>
+                            Edit
+                          </button>
+                          <button
+                            className={`btn btn-ghost ${styles.dangerBtn}`}
+                            onClick={() => {
+                              if (window.confirm(`Delete “${link.title}”?`)) del.mutate(link.id);
+                            }}
+                            disabled={del.isPending}
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

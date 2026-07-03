@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import Pagination, get_current_user, pagination
+from app.api.deps import Pagination, get_current_user, pagination, require_write
 from app.core.database import get_db
 from app.models import PotentialRecruit, RecruitStageEvent, User
 from app.schemas.common import Page
@@ -72,7 +72,7 @@ def get_recruit(
 @router.post("", response_model=RecruitOut, status_code=status.HTTP_201_CREATED)
 def create_recruit(
     body: RecruitCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> PotentialRecruit:
     recruit = crud.create(db, body.model_dump())
@@ -95,7 +95,7 @@ def create_recruit(
 def update_recruit(
     recruit_id: int,
     body: RecruitUpdate,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> PotentialRecruit:
     recruit = _get_or_404(db, recruit_id)
@@ -105,7 +105,7 @@ def update_recruit(
 @router.delete("/{recruit_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_recruit(
     recruit_id: int,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     recruit = _get_or_404(db, recruit_id)
@@ -116,7 +116,7 @@ def delete_recruit(
 def change_stage(
     recruit_id: int,
     body: StageChange,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> PotentialRecruit:
     recruit = _get_or_404(db, recruit_id)

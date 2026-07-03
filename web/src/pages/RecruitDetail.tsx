@@ -16,6 +16,7 @@ import {
 } from "../lib/api";
 import { STAGES, DECLINED, stageMeta } from "../lib/stages";
 import { StageChip } from "../components/StageChip";
+import { useAuth } from "../lib/auth";
 import styles from "./RecruitDetail.module.css";
 
 const ALL_STAGES = [...STAGES, DECLINED];
@@ -32,6 +33,7 @@ export function RecruitDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { canWrite } = useAuth();
 
   const recruitQ = useQuery({
     queryKey: ["recruit", id],
@@ -105,17 +107,19 @@ export function RecruitDetail() {
             {recruit.current_school && <span className={styles.empty}>{recruit.current_school}</span>}
           </div>
         </div>
-        <button
-          className="btn btn-ghost"
-          onClick={() => {
-            if (window.confirm(`Delete ${recruit.full_name}? This can't be undone.`)) {
-              remove.mutate();
-            }
-          }}
-          disabled={remove.isPending}
-        >
-          {remove.isPending ? "Deleting…" : "Delete recruit"}
-        </button>
+        {canWrite && (
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              if (window.confirm(`Delete ${recruit.full_name}? This can't be undone.`)) {
+                remove.mutate();
+              }
+            }}
+            disabled={remove.isPending}
+          >
+            {remove.isPending ? "Deleting…" : "Delete recruit"}
+          </button>
+        )}
       </div>
 
       {remove.isError && (
@@ -127,40 +131,42 @@ export function RecruitDetail() {
       <div className={styles.grid}>
         {/* Left: stage control + editable profile */}
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-4)" }}>
-          <section className={`card ${styles.panel}`}>
-            <h2 className={styles.panelTitle}>Advance stage</h2>
-            <p className={styles.empty}>Move this recruit along the ascent. Each move is logged and feeds the funnel.</p>
-            <div className={styles.stageRow}>
-              {ALL_STAGES.map((s) => {
-                const isCurrent = s.key === recruit.stage;
-                return (
-                  <button
-                    key={s.key}
-                    className={`${styles.stageBtn} ${isCurrent ? styles.stageBtnCurrent : ""}`}
-                    disabled={isCurrent || advance.isPending}
-                    onClick={() => advance.mutate(s.key)}
-                    title={s.blurb}
-                  >
-                    <span className={styles.stageDot} style={{ background: s.color }} aria-hidden />
-                    {s.label}
-                  </button>
-                );
-              })}
-            </div>
-            <textarea
-              className={styles.noteInput}
-              placeholder="Add a note for this transition (optional)…"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-            {advance.isError && (
-              <div className={styles.formError}>
-                {advance.error instanceof ApiError ? advance.error.message : "Couldn't change the stage."}
+          {canWrite && (
+            <section className={`card ${styles.panel}`}>
+              <h2 className={styles.panelTitle}>Advance stage</h2>
+              <p className={styles.empty}>Move this recruit along the ascent. Each move is logged and feeds the funnel.</p>
+              <div className={styles.stageRow}>
+                {ALL_STAGES.map((s) => {
+                  const isCurrent = s.key === recruit.stage;
+                  return (
+                    <button
+                      key={s.key}
+                      className={`${styles.stageBtn} ${isCurrent ? styles.stageBtnCurrent : ""}`}
+                      disabled={isCurrent || advance.isPending}
+                      onClick={() => advance.mutate(s.key)}
+                      title={s.blurb}
+                    >
+                      <span className={styles.stageDot} style={{ background: s.color }} aria-hidden />
+                      {s.label}
+                    </button>
+                  );
+                })}
               </div>
-            )}
-          </section>
+              <textarea
+                className={styles.noteInput}
+                placeholder="Add a note for this transition (optional)…"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+              {advance.isError && (
+                <div className={styles.formError}>
+                  {advance.error instanceof ApiError ? advance.error.message : "Couldn't change the stage."}
+                </div>
+              )}
+            </section>
+          )}
 
-          <ProfilePanel recruit={recruit} onSaved={invalidateAll} />
+          <ProfilePanel recruit={recruit} onSaved={invalidateAll} canWrite={canWrite} />
         </div>
 
         {/* Right: stage-history timeline */}
@@ -201,7 +207,7 @@ export function RecruitDetail() {
   );
 }
 
-function ProfilePanel({ recruit, onSaved }: { recruit: RecruitOut; onSaved: () => void }) {
+function ProfilePanel({ recruit, onSaved, canWrite }: { recruit: RecruitOut; onSaved: () => void; canWrite: boolean }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -263,7 +269,9 @@ function ProfilePanel({ recruit, onSaved }: { recruit: RecruitOut; onSaved: () =
       <section className={`card ${styles.panel}`}>
         <div className={styles.head}>
           <h2 className={styles.panelTitle}>Profile</h2>
-          <button className="btn btn-ghost" onClick={() => setEditing(true)}>Edit</button>
+          {canWrite && (
+            <button className="btn btn-ghost" onClick={() => setEditing(true)}>Edit</button>
+          )}
         </div>
         <div className={styles.fields}>
           <Field label="Email" value={recruit.email} />

@@ -8,7 +8,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import Pagination, get_current_user, pagination
+from app.api.deps import Pagination, get_current_user, pagination, require_write
 from app.core.database import get_db
 from app.models import UniversityContact, User
 from app.schemas.common import Page
@@ -62,7 +62,7 @@ def get_contact(
 @router.post("", response_model=ContactOut, status_code=status.HTTP_201_CREATED)
 def create_contact(
     body: ContactCreate,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> UniversityContact:
     return crud.create(db, body.model_dump())
@@ -72,7 +72,7 @@ def create_contact(
 def update_contact(
     contact_id: int,
     body: ContactUpdate,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> UniversityContact:
     contact = _get_or_404(db, contact_id)
@@ -82,7 +82,7 @@ def update_contact(
 @router.delete("/{contact_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_contact(
     contact_id: int,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     contact = _get_or_404(db, contact_id)

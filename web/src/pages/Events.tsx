@@ -6,6 +6,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import type { components } from "../api/schema";
 import styles from "./Events.module.css";
 
@@ -54,6 +55,7 @@ function fmtTime(t: string | null | undefined): string | null {
 
 export function Events() {
   const navigate = useNavigate();
+  const { canWrite } = useAuth();
   const today = useMemo(() => new Date(), []);
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [status, setStatus] = useState<string | null>(null);
@@ -109,9 +111,11 @@ export function Events() {
           <h1 className={styles.title}>Events</h1>
           <p className={styles.subtitle}>Outreach, tabling, and info sessions across the detachment's calendar.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setCreating(true)}>
-          Add event
-        </button>
+        {canWrite && (
+          <button className="btn btn-primary" onClick={() => setCreating(true)}>
+            Add event
+          </button>
+        )}
       </div>
 
       <div className={styles.toolbar}>
