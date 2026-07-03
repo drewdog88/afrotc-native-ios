@@ -111,8 +111,19 @@ jobs:
           }
           PID="$NEON_PROJECT_ID"
           if [ -z "$PID" ]; then
-            # No project id configured — use the sole project, or fail if ambiguous.
-            neon_api GET "$NEON_API_HOST/projects"
+            # No project id configured — list projects and use the sole one.
+            # Neon ORG accounts reject a plain GET /projects with "org_id is required";
+            # if that happens, discover the org and retry scoped to it.
+            if ! neon_api GET "$NEON_API_HOST/projects"; then
+              echo "Plain project listing needs an org — discovering org_id…"
+              neon_api GET "$NEON_API_HOST/users/me/organizations" || {
+                echo "::error::Could not list Neon organizations."; exit 1; }
+              ORG_ID="$(echo "$NEON_BODY" | jq -r '.organizations[0].id // empty')"
+              [ -n "$ORG_ID" ] || { echo "::error::No Neon organization found for this API key."; exit 1; }
+              echo "::add-mask::$ORG_ID"
+              neon_api GET "$NEON_API_HOST/projects?org_id=$ORG_ID" || {
+                echo "::error::Listing projects for the org failed."; exit 1; }
+            fi
             COUNT="$(echo "$NEON_BODY" | jq '.projects | length')"
             if [ "$COUNT" != "1" ]; then
               echo "::error::Found $COUNT Neon projects. Set the NEON_PROJECT_ID repo variable to disambiguate."; exit 1
