@@ -82,8 +82,10 @@ The schema is rebuilt from Alembic migrations in `backend/alembic/`
 (`alembic upgrade head`) on any fresh Neon branch/project; `backend/scripts/seed_demo.py`
 reseeds reference data. A dump restore brings back the data on top of that.
 
-## Not covered by the DB dump
+## Uploaded materials are covered too
 
-Uploaded materials (`backend/app/api/v1/materials.py`) live in Vercel Blob, which has
-its own durability and is outside the Postgres dump. If materials become
-business-critical, add a periodic Blob export — not needed at current usage.
+Uploaded documents (`backend/app/api/v1/materials.py`) are stored as Postgres
+`bytea` (`recruitment_document.file_data`) under the default `postgres` storage
+backend, so they are **included in the `pg_dump`** and restored with everything
+else. (A `vercel_blob` backend is stubbed but not implemented; if it's ever
+enabled, blob objects would live outside the dump and would need their own export.)
