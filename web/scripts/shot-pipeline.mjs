@@ -1,16 +1,10 @@
 // Focused capture of the Pipeline trend chart — plain view + a hovered state,
 // so we can eyeball the trend line geometry and end-labels before/after a change.
 import { chromium } from "playwright-core";
-import { existsSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
+import { findChromium } from "./chromium.mjs";
 
-const CANDIDATES = [
-  `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1223/chrome-mac/Chromium.app/Contents/MacOS/Chromium`,
-  `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1217/chrome-mac/Chromium.app/Contents/MacOS/Chromium`,
-  `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1208/chrome-mac/Chromium.app/Contents/MacOS/Chromium`,
-  `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1187/chrome-mac/Chromium.app/Contents/MacOS/Chromium`,
-];
-const executablePath = CANDIDATES.find((p) => existsSync(p));
-if (!executablePath) throw new Error("No bundled Chromium found");
+const executablePath = findChromium();
 
 const BASE = process.env.APP_URL ?? "http://127.0.0.1:5173";
 const OUT = "shots";
