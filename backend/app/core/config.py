@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,8 +12,21 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    # Database — defaults to a local SQLite file for zero-config dev.
-    database_url: str = "sqlite:///./afrotc695.db"
+    # Database — REQUIRED. Must be a PostgreSQL (Neon) connection string.
+    # There is intentionally NO default and NO local/SQLite fallback: the
+    # database lives only in Postgres so the pattern is unambiguous.
+    database_url: str
+
+    @field_validator("database_url")
+    @classmethod
+    def _require_postgres(cls, v: str) -> str:
+        if not v or not v.startswith("postgresql"):
+            raise ValueError(
+                "DATABASE_URL must be a PostgreSQL connection string "
+                "(e.g. postgresql+psycopg://…). Local/SQLite databases are "
+                "not permitted — there is no local fallback."
+            )
+        return v
 
     # Security
     secret_key: str = "dev-only-insecure-change-me"
@@ -45,10 +59,6 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
-
-    @property
-    def is_sqlite(self) -> bool:
-        return self.database_url.startswith("sqlite")
 
 
 @lru_cache

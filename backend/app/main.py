@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import SessionLocal
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("afrotc695")
@@ -17,14 +17,8 @@ logger = logging.getLogger("afrotc695")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Dev convenience: ensure tables exist. In production, Alembic migrations
-    # are the source of truth (see alembic/).
-    if settings.is_sqlite:
-        import app.models  # noqa: F401  (register models on the metadata)
-
-        Base.metadata.create_all(bind=engine)
-        logger.info("SQLite dev schema ensured.")
-
+    # Schema is owned exclusively by Alembic migrations (see alembic/); the app
+    # never creates tables itself. There is no local/SQLite fallback.
     from app.bootstrap import bootstrap_admin
 
     with SessionLocal() as db:
