@@ -425,12 +425,19 @@ function ProfilePanel({
         <div className={styles.fields}>
           <Field label="Title / role" value={contact.contact_title} />
           <Field label="School" value={contact.university_name} />
-          <Field label="Email" value={contact.email} />
-          <Field label="Phone" value={contact.phone} />
+          <LinkField label="Email" value={contact.email} href={contact.email ? `mailto:${contact.email}` : undefined} />
+          <LinkField label="Phone" value={contact.phone} href={contact.phone ? `tel:${contact.phone.replace(/\D/g, "")}` : undefined} />
           <div className={styles.fieldFull}>
             <div className={styles.fieldLabel}>Address</div>
             <div className={styles.fieldValue}>{contact.address || <span className={styles.empty}>—</span>}</div>
           </div>
+          {contact.latitude != null && contact.longitude != null && (
+            <LinkField
+              label="Map"
+              value="Open in Google Maps"
+              href={`https://www.google.com/maps?q=${contact.latitude},${contact.longitude}`}
+            />
+          )}
           <Field label="Latitude" value={contact.latitude != null ? String(contact.latitude) : null} mono />
           <Field label="Longitude" value={contact.longitude != null ? String(contact.longitude) : null} mono />
           <div className={styles.fieldFull}>
@@ -515,6 +522,27 @@ function Field({ label, value, mono }: { label: string; value: string | null | u
       <div className={styles.fieldLabel}>{label}</div>
       <div className={`${styles.fieldValue} ${mono ? "mono" : ""}`}>
         {value || <span className={styles.empty}>—</span>}
+      </div>
+    </div>
+  );
+}
+
+function LinkField({ label, value, href }: { label: string; value: string | null | undefined; href?: string }) {
+  return (
+    <div className={styles.field}>
+      <div className={styles.fieldLabel}>{label}</div>
+      <div className={styles.fieldValue}>
+        {href && value ? (
+          <a
+            href={href}
+            onClick={(e) => e.stopPropagation()}
+            style={{ cursor: "pointer", color: "var(--link-color, #0070f3)", textDecoration: "underline" }}
+          >
+            {value}
+          </a>
+        ) : (
+          value || <span className={styles.empty}>—</span>
+        )}
       </div>
     </div>
   );

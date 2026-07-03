@@ -1,5 +1,54 @@
 import SwiftUI
 
+/// Shared navigation state so one screen can drive another — e.g. a Dashboard
+/// stat tile jumps to its tab, and the More hub's deep path is hoisted here so
+/// the Dashboard can open Follow-ups directly. Injected into the environment by
+/// `MainTabView`.
+@MainActor
+final class AppRouter: ObservableObject {
+    @Published var tab: String
+    /// Type-erased so the shared More stack can push heterogeneous routes —
+    /// `Destination` (the hub rows) plus each secondary screen's own route
+    /// (`EventRoute`, `ContactRoute`, `RecruitRoute`). A homogeneous `[Destination]`
+    /// binding would silently drop links of any other type, breaking their detail
+    /// navigation.
+    @Published var morePath: NavigationPath
+
+    /// A one-shot filter handed to a list when a summary drills into it — the
+    /// list applies it once on receipt, then clears it. Mirrors the web
+    /// `/recruits?stage=` / `/cadets?status=` deep links.
+    @Published var pendingRecruitStage: RecruitStage?
+    @Published var pendingCadetStatus: String?
+
+    init(tab: String = "dashboard", morePath: NavigationPath = NavigationPath()) {
+        self.tab = tab
+        self.morePath = morePath
+    }
+
+    /// Jump to a top-level tab.
+    func select(_ tab: String) { self.tab = tab }
+
+    /// Open the Recruits tab, optionally pre-filtered to a stage.
+    func openRecruits(stage: RecruitStage? = nil) {
+        pendingRecruitStage = stage
+        tab = "recruits"
+    }
+
+    /// Open the Cadets tab, optionally pre-filtered to a status.
+    func openCadets(status: String? = nil) {
+        pendingCadetStatus = status
+        tab = "cadets"
+    }
+
+    /// Open a screen that lives under the More hub (e.g. Follow-ups).
+    func openMore(_ dest: MoreView.Destination) {
+        var path = NavigationPath()
+        path.append(dest)
+        morePath = path
+        tab = "more"
+    }
+}
+
 /// Top-level switch: a brief loading state, then either the login screen or the
 /// authenticated tab shell.
 struct RootView: View {
@@ -21,10 +70,11 @@ struct RootView: View {
 /// The authenticated shell. Five tabs — Dashboard, Recruits, Cadets, Pipeline,
 /// and a More hub that holds Contacts, Events, Follow-ups, and Materials.
 struct MainTabView: View {
-    @State private var selection = MainTabView.initialTab
+    @StateObject private var router = AppRouter(tab: MainTabView.initialTab,
+                                               morePath: MoreView.initialPath)
 
     var body: some View {
-        TabView(selection: $selection) {
+        TabView(selection: $router.tab) {
             DashboardView()
                 .tabItem { Label("Dashboard", systemImage: "chart.bar.fill") }
                 .tag("dashboard")
@@ -41,6 +91,7 @@ struct MainTabView: View {
                 .tabItem { Label("More", systemImage: "ellipsis.circle") }
                 .tag("more")
         }
+        .environmentObject(router)
     }
 
     /// Which tab to open on launch. Defaults to Dashboard; in DEBUG builds a
@@ -79,10 +130,10 @@ struct MoreView: View {
         }
     }
 
-    @State private var path: [Destination] = MoreView.initialPath
+    @EnvironmentObject private var router: AppRouter
 
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack(path: $router.morePath) {
             List(Destination.allCases, id: \.self) { d in
                 NavigationLink(value: d) {
                     Label(d.title, systemImage: d.icon)
@@ -102,13 +153,15 @@ struct MoreView: View {
 
     /// In DEBUG, `DET695_MORE_DEST` (contacts|events|followups|materials) deep-links
     /// straight into a secondary screen so it can be captured from the CLI.
-    private static var initialPath: [Destination] {
+    static var initialPath: NavigationPath {
         #if DEBUG
         if let raw = ProcessInfo.processInfo.environment["DET695_MORE_DEST"],
            let d = Destination(rawValue: raw) {
-            return [d]
+            var path = NavigationPath()
+            path.append(d)
+            return path
         }
         #endif
-        return []
+        return NavigationPath()
     }
 }

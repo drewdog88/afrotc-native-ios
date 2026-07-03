@@ -5,6 +5,7 @@
    hovered period, and an always-on legend. Below the chart, the current funnel
    snapshot with stage-to-stage conversion. No charting library — pure SVG. */
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { STAGES, stageMeta } from "../lib/stages";
@@ -46,6 +47,7 @@ interface SeriesGeo {
 }
 
 export function Pipeline() {
+  const navigate = useNavigate();
   const [interval, setInterval] = useState<Interval>("week");
   const [hover, setHover] = useState<number | null>(null);
 
@@ -285,7 +287,21 @@ export function Pipeline() {
             {geo.seriesGeo.length >= 2 && (
               <ul className={styles.legend}>
                 {geo.seriesGeo.map((s) => (
-                  <li key={s.key} className={styles.legendItem}>
+                  <li
+                    key={s.key}
+                    className={styles.legendItem}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => navigate(`/recruits?stage=${s.key}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(`/recruits?stage=${s.key}`);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View ${s.label} recruits`}
+                  >
                     <span className={styles.legendDot} style={{ background: s.color }} aria-hidden />
                     {s.label}
                   </li>
@@ -316,6 +332,7 @@ export function Pipeline() {
 }
 
 function ConversionSummary({ funnel }: { funnel: FunnelResponse | undefined }) {
+  const navigate = useNavigate();
   const countFor = (key: string) => funnel?.stages.find((s) => s.stage === key)?.count ?? 0;
   const total = funnel?.total ?? 0;
 
@@ -339,7 +356,20 @@ function ConversionSummary({ funnel }: { funnel: FunnelResponse | undefined }) {
           const conv = i > 0 && below > 0 ? Math.round((count / below) * 100) : null;
           const meta = stageMeta(s.key);
           return (
-            <tr key={s.key}>
+            <tr
+              key={s.key}
+              style={{ cursor: "pointer" }}
+              onClick={() => navigate(`/recruits?stage=${s.key}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(`/recruits?stage=${s.key}`);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`View ${meta.label} recruits`}
+            >
               <td>
                 <span className={styles.convStage}>
                   <span className={styles.convDot} style={{ background: meta.color }} aria-hidden />

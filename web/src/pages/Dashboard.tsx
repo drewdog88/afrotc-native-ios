@@ -2,6 +2,7 @@
    recruitment reporting: the Ascent funnel (current count per stage, with stage-to-
    stage conversion) and the new-recruits trend over time, plus headline stat tiles. */
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { api, type DashboardStats, type FunnelResponse } from "../lib/api";
 import { STAGES, stageMeta } from "../lib/stages";
 import { TrendArea } from "../components/TrendArea";
@@ -13,20 +14,26 @@ function formatWeek(period: string): string {
   return m ? `W${m[1]}` : period;
 }
 
-function StatTile({ label, value, suffix, note }: { label: string; value: number | string; suffix?: string; note?: string }) {
+function StatTile({ label, value, suffix, note, onClick }: { label: string; value: number | string; suffix?: string; note?: string; onClick?: () => void }) {
+  const Wrapper = onClick ? "button" : "div";
   return (
-    <div className={`card ${styles.tile}`}>
+    <Wrapper
+      className={`card ${styles.tile} ${onClick ? styles.tileClickable : ""}`}
+      onClick={onClick}
+      {...(onClick && { type: "button" as const })}
+    >
       <span className="eyebrow">{label}</span>
       <span className={styles.tileValue}>
         {value}
         {suffix && <small> {suffix}</small>}
       </span>
       {note && <span className={styles.tileDelta}>{note}</span>}
-    </div>
+    </Wrapper>
   );
 }
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const statsQ = useQuery({ queryKey: ["dashboard-stats"], queryFn: () => api.get<DashboardStats>("/dashboard/stats") });
   const funnelQ = useQuery({ queryKey: ["funnel"], queryFn: () => api.get<FunnelResponse>("/analytics/funnel") });
 
@@ -55,10 +62,10 @@ export function Dashboard() {
           Array.from({ length: 4 }).map((_, i) => <div key={i} className={`${styles.tile} ${styles.skeleton}`} style={{ height: 104 }} />)
         ) : (
           <>
-            <StatTile label="Recruits in pipeline" value={totalRecruits} />
-            <StatTile label="Commissioned" value={commissioned} note={`${commissionRate}% of pipeline`} />
-            <StatTile label="Active cadets" value={stats?.total_cadets ?? 0} />
-            <StatTile label="Open follow-ups" value={stats?.open_followups ?? 0} note="needs attention" />
+            <StatTile label="Recruits in pipeline" value={totalRecruits} onClick={() => navigate("/recruits")} />
+            <StatTile label="Commissioned" value={commissioned} note={`${commissionRate}% of pipeline`} onClick={() => navigate("/recruits?stage=commissioned")} />
+            <StatTile label="Active cadets" value={stats?.total_cadets ?? 0} onClick={() => navigate("/cadets?status=active")} />
+            <StatTile label="Open follow-ups" value={stats?.open_followups ?? 0} note="needs attention" onClick={() => navigate("/follow-ups")} />
           </>
         )}
       </div>
@@ -83,7 +90,13 @@ export function Dashboard() {
                 const width = Math.max(18, (count / maxCount) * 100);
                 const meta = stageMeta(s.key);
                 return (
-                  <div key={s.key} className={styles.band} title={`${meta.label}: ${count}`}>
+                  <button
+                    key={s.key}
+                    className={`${styles.band} ${styles.bandClickable}`}
+                    title={`${meta.label}: ${count}`}
+                    onClick={() => navigate(`/recruits?stage=${s.key}`)}
+                    type="button"
+                  >
                     <div className={styles.bandFill} style={{ width: `${width}%`, background: meta.color }} />
                     <div className={styles.bandContent}>
                       <div className={styles.bandLabel}>
@@ -95,7 +108,7 @@ export function Dashboard() {
                         <span className={styles.bandConv}>{conv != null ? `${conv}%` : "—"}</span>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>

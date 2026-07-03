@@ -32,6 +32,17 @@
   flex-direction: column;
   gap: var(--sp-2);
 }
+.tileClickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.tileClickable:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-2);
+}
+.tileClickable:active {
+  transform: translateY(0);
+}
 .tileValue {
   font-family: var(--font-display);
   font-weight: 700;
@@ -97,6 +108,21 @@
   /* Visible track behind the proportional colored fill, so the metrics that sit
      to the right of the fill have a defined surface in both light and dark. */
   background: var(--surface-2);
+}
+.bandClickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+}
+.bandClickable:hover {
+  transform: translateX(2px);
+  box-shadow: var(--shadow-2);
+}
+.bandClickable:active {
+  transform: translateX(0);
 }
 .bandFill {
   position: absolute;
