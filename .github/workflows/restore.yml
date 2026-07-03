@@ -1,0 +1,161 @@
+name: Restore backup to new Neon branch (one click)
+
+# One-click recovery, entirely in the browser — no laptop, no crypto by hand.
+# Actions tab -> "Restore backup to new Neon branch" -> Run workflow:
+#   - pick a backup tag (blank = newest)
+#   - it creates a FRESH Neon branch via the NEON_API secret, decrypts the chosen
+#     backup with BACKUP_AGE_KEY, and pg_restores into that branch.
+# It NEVER writes to your live database — the restore lands in a new branch you can
+# inspect and (only if it looks right) promote by pointing Vercel's DATABASE_URL at
+# the branch's POOLED connection string. See BACKUP.md.
+#
+# Security: NEON_API + BACKUP_AGE_KEY + the branch connection string (which carries a
+# password) are passed via env: and masked; none are echoed or interpolated into a
+# run: command. The only external input is the optional tag/name, taken via env: and
+# used only quoted — never spliced into a command — so this workflow is not injectable.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Backup release tag to restore (blank = newest backup-*)"
+        required: false
+        default: ""
+      branch_name:
+        description: "Name for the new Neon branch (blank = restore-<run id>)"
+        required: false
+        default: ""
+
+concurrency:
+  group: db-restore
+  cancel-in-progress: false
+
+permissions:
+  contents: read # download Release assets
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    env:
+      NEON_API_HOST: https://console.neon.tech/api/v2
+    steps:
+      - name: Install PostgreSQL 17 client + age + jq
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 age jq
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Download and decrypt the chosen backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          AGE_KEY: ${{ secrets.BACKUP_AGE_KEY }}
+        run: |
+          if [ -z "$AGE_KEY" ]; then
+            echo "::error::BACKUP_AGE_KEY secret is not set — cannot decrypt. See BACKUP.md."; exit 1
+          fi
+          TAG="$INPUT_TAG"
+          if [ -z "$TAG" ]; then
+            TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName,createdAt \
+              --jq 'map(select(.tagName|startswith("backup-"))) | sort_by(.createdAt) | reverse | .[0].tagName')"
+          fi
+          [ -n "$TAG" ] || { echo "::error::No backup-* release found."; exit 1; }
+          echo "Restoring backup: $TAG"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.dump.age' --dir .
+          ENC="$(ls *.dump.age)"
+          umask 077; printf '%s\n' "$AGE_KEY" > age.key
+          DUMP="${ENC%.age}"
+          age -d -i age.key -o "$DUMP" "$ENC"
+          rm -f age.key
+          echo "DUMP=$DUMP" >> "$GITHUB_ENV"
+          SIZE=$(stat -c%s "$DUMP")
+          echo "Decrypted dump: $DUMP (${SIZE} bytes)"
+          [ "$SIZE" -ge 1024 ] || { echo "::error::Dump suspiciously small (${SIZE} bytes)."; exit 1; }
+          pg_restore --list "$DUMP" >/dev/null || { echo "::error::Not a valid pg_dump archive."; exit 1; }
+
+      - name: Create a fresh Neon branch
+        env:
+          NEON_API: ${{ secrets.NEON_API }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          INPUT_NAME: ${{ github.event.inputs.branch_name }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          [ -n "$NEON_API" ] || { echo "::error::NEON_API secret is not set."; exit 1; }
+          PID="$NEON_PROJECT_ID"
+          if [ -z "$PID" ]; then
+            # No project id configured — use the sole project, or fail if ambiguous.
+            PROJECTS="$(curl -fsS -H "Authorization: Bearer $NEON_API" "$NEON_API_HOST/projects")"
+            COUNT="$(echo "$PROJECTS" | jq '.projects | length')"
+            if [ "$COUNT" != "1" ]; then
+              echo "::error::Found $COUNT Neon projects. Set the NEON_PROJECT_ID repo variable to disambiguate."; exit 1
+            fi
+            PID="$(echo "$PROJECTS" | jq -r '.projects[0].id')"
+          fi
+          echo "Neon project: $PID"
+          BRANCH="${INPUT_NAME:-restore-${RUN_ID}}"
+          echo "New branch: $BRANCH"
+          echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
+          # Create the branch WITH a read_write endpoint; capture the direct URI.
+          BODY="$(jq -nc --arg n "$BRANCH" '{branch:{name:$n}, endpoints:[{type:"read_write"}]}')"
+          RESP="$(curl -fsS -X POST "$NEON_API_HOST/projects/$PID/branches" \
+            -H "Authorization: Bearer $NEON_API" -H "Content-Type: application/json" -d "$BODY")"
+          URI="$(echo "$RESP" | jq -r '.connection_uris[0].connection_uri // empty')"
+          if [ -z "$URI" ]; then
+            echo "::error::Neon API did not return a connection URI."
+            echo "$RESP" | jq -r '.message // ""'
+            exit 1
+          fi
+          case "$URI" in *"?"*) : ;; *) URI="${URI}?sslmode=require" ;; esac
+          echo "::add-mask::$URI"          # the URI carries a password — never print it
+          echo "TARGET=$URI" >> "$GITHUB_ENV"
+          # Wait for the new endpoint to accept connections.
+          for i in $(seq 1 30); do
+            if pg_isready -d "$URI" >/dev/null 2>&1; then echo "Branch endpoint ready."; break; fi
+            echo "waiting for branch endpoint ($i)…"; sleep 4
+          done
+
+      - name: Restore into the new branch
+        run: |
+          pg_restore --no-owner --no-privileges --clean --if-exists -d "$TARGET" "$DUMP"
+          echo "Restore complete."
+
+      - name: Verify and summarize
+        run: |
+          set -euo pipefail
+          EXPECTED="activity_log cadet external_link follow_up password_history potential_recruit recruit_stage_event recruitment_document recruitment_event university_contact users"
+          {
+            echo "## Restore to Neon branch \`$BRANCH\`"
+            echo ""
+            echo "Backup restored: **$TAG**"
+            echo ""
+            echo "| table | rows |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          fail=0
+          for t in $EXPECTED; do
+            if [ "$(psql "$TARGET" -tAc "SELECT to_regclass('public.$t') IS NOT NULL")" != "t" ]; then
+              echo "| $t | **MISSING** |" >> "$GITHUB_STEP_SUMMARY"; fail=1; continue
+            fi
+            c="$(psql "$TARGET" -tAc "SELECT count(*) FROM \"$t\"")"
+            echo "| $t | $c |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          users="$(psql "$TARGET" -tAc "SELECT count(*) FROM users")"
+          {
+            echo ""
+            echo "**users rows: ${users}**"
+            echo ""
+            if [ "${users:-0}" -lt 1 ] || [ "$fail" -ne 0 ]; then
+              echo "Result: **PROBLEM** ❌ — inspect before promoting."
+            else
+              echo "Result: **RESTORED** ✅"
+              echo ""
+              echo "### To promote (only if this looks right)"
+              echo "1. Neon console -> this project -> branch \`$BRANCH\` -> copy its **POOLED** connection string."
+              echo "2. Set Vercel \`DATABASE_URL\` to it (driver \`postgresql+psycopg://\`, host \`...-pooler...\`, \`?sslmode=require\`) and redeploy."
+              echo "3. Delete the branch when you no longer need it."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "${users:-0}" -ge 1 ] && [ "$fail" -eq 0 ] || { echo "::error::Restore verification failed — see summary."; exit 1; }
