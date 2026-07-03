@@ -20,6 +20,18 @@ final class Session: ObservableObject {
     /// On launch, if we hold a token, try to fetch the current user to confirm
     /// the session is still valid; otherwise land on the login screen.
     func restore() async {
+        #if DEBUG
+        // Test affordance: `DET695_AUTOLOGIN=1` signs in on launch so the
+        // authenticated screens can be smoke-tested from the CLI (the Simulator
+        // has no scriptable text entry). Inert unless the env var is set.
+        let env = ProcessInfo.processInfo.environment
+        if env["DET695_AUTOLOGIN"] == "1" {
+            await login(username: env["DET695_AUTOLOGIN_USER"] ?? "admin",
+                        password: env["DET695_AUTOLOGIN_PASS"] ?? "Det695Demo!",
+                        totpCode: nil)
+            return
+        }
+        #endif
         guard await APIClient.shared.hasSession else {
             phase = .signedOut
             return
