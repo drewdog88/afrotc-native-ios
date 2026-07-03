@@ -10,5 +10,7 @@ web/shots/
 **/__pycache__/
 **/*.pyc
 
-# Screenshots & scratch
-*.png
+# Screenshots & scratch — root-level only. A blanket `*.png` also strips the
+# app's real source assets (web/src/assets/*.png), which Vite imports at build
+# time; that breaks the build. web/shots/ (above) already covers screenshots.
+/*.png
