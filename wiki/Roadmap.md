@@ -31,8 +31,6 @@ Where the platform is and what's next. Not a promise — a living list.
 
 ## Later / ideas
 
-- Finish (or remove) the **Vercel Blob** document backend — today it's a stub and
-  everything runs on Postgres `bytea`, which is simpler and lands in the backup.
 - Richer analytics (per-recruiter, per-school conversion; event ROI).
 - Push notifications / reminders for due follow-ups on iOS.
 - iOS parity for the pages that are currently web-only (Contacts detail, Events
