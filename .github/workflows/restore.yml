@@ -84,15 +84,40 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           [ -n "$NEON_API" ] || { echo "::error::NEON_API secret is not set."; exit 1; }
+          # A NEON_API secret set from a file/echo can carry a trailing newline, which
+          # corrupts the Authorization header. Strip CR/LF/space so the header is clean.
+          TOKEN="$(printf '%s' "$NEON_API" | tr -d '\r\n[:space:]')"
+          echo "::add-mask::$TOKEN"   # mask the cleaned token (not the exact registered secret)
+          # neon_api METHOD URL [DATA]: call the API, capturing body + HTTP status
+          # separately so a 4xx prints Neon's actual error message instead of a bare
+          # "curl (22) 400". Does NOT use -f (which would hide the body).
+          neon_api() {
+            local method="$1" url="$2" data="${3:-}"
+            local out code
+            if [ -n "$data" ]; then
+              out="$(curl -sS -w $'\n%{http_code}' -X "$method" "$url" \
+                -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$data")"
+            else
+              out="$(curl -sS -w $'\n%{http_code}' -X "$method" "$url" \
+                -H "Authorization: Bearer $TOKEN")"
+            fi
+            code="${out##*$'\n'}"
+            NEON_BODY="${out%$'\n'*}"
+            if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+              echo "::error::Neon API $method $url returned HTTP $code"
+              echo "$NEON_BODY" | jq -r '.message // .error // .' 2>/dev/null || echo "$NEON_BODY"
+              return 1
+            fi
+          }
           PID="$NEON_PROJECT_ID"
           if [ -z "$PID" ]; then
             # No project id configured — use the sole project, or fail if ambiguous.
-            PROJECTS="$(curl -fsS -H "Authorization: Bearer $NEON_API" "$NEON_API_HOST/projects")"
-            COUNT="$(echo "$PROJECTS" | jq '.projects | length')"
+            neon_api GET "$NEON_API_HOST/projects"
+            COUNT="$(echo "$NEON_BODY" | jq '.projects | length')"
             if [ "$COUNT" != "1" ]; then
               echo "::error::Found $COUNT Neon projects. Set the NEON_PROJECT_ID repo variable to disambiguate."; exit 1
             fi
-            PID="$(echo "$PROJECTS" | jq -r '.projects[0].id')"
+            PID="$(echo "$NEON_BODY" | jq -r '.projects[0].id')"
           fi
           echo "Neon project: $PID"
           BRANCH="${INPUT_NAME:-restore-${RUN_ID}}"
@@ -100,8 +125,8 @@ jobs:
           echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
           # Create the branch WITH a read_write endpoint; capture the direct URI.
           BODY="$(jq -nc --arg n "$BRANCH" '{branch:{name:$n}, endpoints:[{type:"read_write"}]}')"
-          RESP="$(curl -fsS -X POST "$NEON_API_HOST/projects/$PID/branches" \
-            -H "Authorization: Bearer $NEON_API" -H "Content-Type: application/json" -d "$BODY")"
+          neon_api POST "$NEON_API_HOST/projects/$PID/branches" "$BODY"
+          RESP="$NEON_BODY"
           URI="$(echo "$RESP" | jq -r '.connection_uris[0].connection_uri // empty')"
           if [ -z "$URI" ]; then
             echo "::error::Neon API did not return a connection URI."
