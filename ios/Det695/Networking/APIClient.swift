@@ -84,6 +84,84 @@ actor APIClient {
         return try await requestJSON("/cadets", method: "GET", bodyData: nil, authed: true, query: q)
     }
 
+    func contacts(search: String? = nil, isActive: Bool? = nil,
+                  skip: Int = 0, limit: Int = 200) async throws -> Page<ContactOut> {
+        var q = [URLQueryItem(name: "skip", value: String(skip)),
+                 URLQueryItem(name: "limit", value: String(limit))]
+        if let search, !search.isEmpty { q.append(URLQueryItem(name: "search", value: search)) }
+        if let isActive { q.append(URLQueryItem(name: "is_active", value: isActive ? "true" : "false")) }
+        return try await requestJSON("/contacts", method: "GET", bodyData: nil, authed: true, query: q)
+    }
+
+    func contact(id: Int) async throws -> ContactOut {
+        try await requestJSON("/contacts/\(id)", method: "GET", bodyData: nil, authed: true)
+    }
+
+    func events(search: String? = nil, status: String? = nil, eventType: String? = nil,
+                skip: Int = 0, limit: Int = 200) async throws -> Page<EventOut> {
+        var q = [URLQueryItem(name: "skip", value: String(skip)),
+                 URLQueryItem(name: "limit", value: String(limit))]
+        if let search, !search.isEmpty { q.append(URLQueryItem(name: "search", value: search)) }
+        if let status, !status.isEmpty { q.append(URLQueryItem(name: "status", value: status)) }
+        if let eventType, !eventType.isEmpty { q.append(URLQueryItem(name: "event_type", value: eventType)) }
+        return try await requestJSON("/events", method: "GET", bodyData: nil, authed: true, query: q)
+    }
+
+    func event(id: Int) async throws -> EventOut {
+        try await requestJSON("/events/\(id)", method: "GET", bodyData: nil, authed: true)
+    }
+
+    func followups(assigneeId: String? = nil, status: String? = nil, dueBefore: String? = nil,
+                   skip: Int = 0, limit: Int = 200) async throws -> Page<FollowUpOut> {
+        var q = [URLQueryItem(name: "skip", value: String(skip)),
+                 URLQueryItem(name: "limit", value: String(limit))]
+        if let assigneeId, !assigneeId.isEmpty { q.append(URLQueryItem(name: "assignee_id", value: assigneeId)) }
+        if let status, !status.isEmpty { q.append(URLQueryItem(name: "status", value: status)) }
+        if let dueBefore, !dueBefore.isEmpty { q.append(URLQueryItem(name: "due_before", value: dueBefore)) }
+        return try await requestJSON("/followups", method: "GET", bodyData: nil, authed: true, query: q)
+    }
+
+    /// Mark a follow-up done. Returns the updated row.
+    @discardableResult
+    func completeFollowup(id: Int) async throws -> FollowUpOut {
+        try await requestJSON("/followups/\(id)/complete", method: "POST", bodyData: nil, authed: true)
+    }
+
+    func analyticsFunnel() async throws -> FunnelResponse {
+        try await requestJSON("/analytics/funnel", method: "GET", bodyData: nil, authed: true)
+    }
+
+    func analyticsTrends(interval: String = "week") async throws -> TrendsResponse {
+        let q = [URLQueryItem(name: "metric", value: "all"),
+                 URLQueryItem(name: "interval", value: interval)]
+        return try await requestJSON("/analytics/trends", method: "GET", bodyData: nil, authed: true, query: q)
+    }
+
+    func materialLinks(search: String? = nil, category: String? = nil,
+                       skip: Int = 0, limit: Int = 200) async throws -> Page<LinkOut> {
+        var q = [URLQueryItem(name: "skip", value: String(skip)),
+                 URLQueryItem(name: "limit", value: String(limit))]
+        if let search, !search.isEmpty { q.append(URLQueryItem(name: "search", value: search)) }
+        if let category, !category.isEmpty { q.append(URLQueryItem(name: "category", value: category)) }
+        return try await requestJSON("/materials/links", method: "GET", bodyData: nil, authed: true, query: q)
+    }
+
+    func materialDocuments(search: String? = nil, category: String? = nil,
+                           skip: Int = 0, limit: Int = 200) async throws -> Page<DocumentOut> {
+        var q = [URLQueryItem(name: "skip", value: String(skip)),
+                 URLQueryItem(name: "limit", value: String(limit))]
+        if let search, !search.isEmpty { q.append(URLQueryItem(name: "search", value: search)) }
+        if let category, !category.isEmpty { q.append(URLQueryItem(name: "category", value: category)) }
+        return try await requestJSON("/materials/documents", method: "GET", bodyData: nil, authed: true, query: q)
+    }
+
+    /// Download a document's raw bytes (authenticated). The caller pairs this with
+    /// the document's `originalFilename` to save/share it.
+    func downloadDocument(id: Int) async throws -> Data {
+        try await requestData("/materials/documents/\(id)/download", method: "GET",
+                              bodyData: nil, authed: true)
+    }
+
     // MARK: - Core request
 
     private func requestJSON<T: Decodable>(_ path: String, method: String, bodyData: Data?,

@@ -32,6 +32,16 @@ enum Theme {
         default: return muted
         }
     }
+
+    /// Status dot color for an event, matching the web Events page
+    /// (scheduled=sky, completed=green, cancelled=red).
+    static func eventStatusColor(_ status: EventStatus) -> Color {
+        switch status {
+        case .scheduled: return Color(hex: 0x3B6EA5)
+        case .completed: return ok
+        case .cancelled: return danger
+        }
+    }
 }
 
 extension Color {
