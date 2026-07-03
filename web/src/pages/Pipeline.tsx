@@ -18,7 +18,7 @@ type Interval = "week" | "month";
 
 const W = 700;
 const H = 300;
-const PAD = { top: 18, right: 66, bottom: 30, left: 36 };
+const PAD = { top: 18, right: 18, bottom: 30, left: 36 };
 
 function formatPeriod(period: string, interval: Interval): string {
   if (interval === "week") {
@@ -37,7 +37,6 @@ function formatPeriod(period: string, interval: Interval): string {
 interface SeriesGeo {
   key: string;
   label: string;
-  short: string;
   color: string;
   line: string;
   coords: { x: number; y: number; count: number; period: string }[];
@@ -74,32 +73,39 @@ export function Pipeline() {
     const innerW = W - PAD.left - PAD.right;
     const innerH = H - PAD.top - PAD.bottom;
     const n = periods.length;
-    const pIndex = new Map(periods.map((p, i) => [p, i]));
-    const max = Math.max(
-      1,
-      ...series.flatMap((s) => s.points.map((p) => p.count)),
-    );
     const x = (i: number) => PAD.left + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+
+    // Cumulative reach: for each stage, the running total of recruits that have
+    // entered it by each period. This is a monotonic level (it never falls), so
+    // it reads as pipeline momentum instead of the sawtooth you get from plotting
+    // raw per-period transition counts. Every series carries a value at every
+    // period on the shared axis, so the lines are continuous edge-to-edge.
+    const cumulative = series.map((s) => {
+      const perPeriod = new Map(s.points.map((p) => [p.period, p.count]));
+      let running = 0;
+      const values = periods.map((p) => {
+        running += perPeriod.get(p) ?? 0;
+        return running;
+      });
+      return { stage: s.stage, values };
+    });
+
+    const max = Math.max(1, ...cumulative.flatMap((c) => c.values));
     const y = (v: number) => PAD.top + innerH - (v / max) * innerH;
 
-    const seriesGeo: SeriesGeo[] = series.map((s) => {
-      const meta = stageMeta(s.stage);
+    const seriesGeo: SeriesGeo[] = cumulative.map((c) => {
+      const meta = stageMeta(c.stage);
       const byPeriod = new Map<string, number>();
-      // Points sorted by their period order in the shared axis.
-      const sorted = [...s.points].sort(
-        (a, b) => (pIndex.get(a.period) ?? 0) - (pIndex.get(b.period) ?? 0),
-      );
-      const coords = sorted.map((p) => {
-        byPeriod.set(p.period, p.count);
-        return { x: x(pIndex.get(p.period) ?? 0), y: y(p.count), count: p.count, period: p.period };
+      const coords = c.values.map((v, i) => {
+        byPeriod.set(periods[i], v);
+        return { x: x(i), y: y(v), count: v, period: periods[i] };
       });
       const line = coords
-        .map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`)
+        .map((pt, i) => `${i === 0 ? "M" : "L"}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`)
         .join(" ");
       return {
-        key: s.stage,
+        key: c.stage,
         label: meta.label,
-        short: meta.short,
         color: meta.color,
         line,
         coords,
@@ -119,7 +125,7 @@ export function Pipeline() {
         <div>
           <h1 className={styles.title}>Pipeline</h1>
           <p className={styles.subtitle}>
-            How the recruiting pipeline is changing over time — stage counts by {interval === "week" ? "week" : "month"}.
+            How the recruiting pipeline is building over time — cumulative recruits to reach each stage by {interval === "week" ? "week" : "month"}.
           </p>
         </div>
         <div className={styles.toggle} role="group" aria-label="Trend interval">
@@ -143,8 +149,8 @@ export function Pipeline() {
       <section className={`card ${styles.panel}`}>
         <div className={styles.panelHead}>
           <div>
-            <h2 className={styles.panelTitle}>Stage counts over time</h2>
-            <span className={styles.panelNote}>Each line is one stage · one shared scale</span>
+            <h2 className={styles.panelTitle}>Cumulative reach by stage</h2>
+            <span className={styles.panelNote}>Running total of recruits to reach each stage · one shared scale</span>
           </div>
         </div>
 
@@ -162,7 +168,7 @@ export function Pipeline() {
                 viewBox={`0 0 ${W} ${H}`}
                 preserveAspectRatio="none"
                 role="img"
-                aria-label={`Stage counts by ${interval}`}
+                aria-label={`Cumulative recruits to reach each stage by ${interval}`}
                 onMouseLeave={() => setHover(null)}
                 onMouseMove={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -223,20 +229,8 @@ export function Pipeline() {
                   />
                 ))}
 
-                {/* direct end-labels where they fit */}
-                {geo.seriesGeo.map((s) =>
-                  s.last ? (
-                    <text
-                      key={s.key}
-                      className={styles.endLabel}
-                      x={s.last.x + 6}
-                      y={s.last.y + 3}
-                      fill={s.color}
-                    >
-                      {s.short}
-                    </text>
-                  ) : null,
-                )}
+                {/* Identity comes from the always-on legend + hover tooltip below.
+                   With 6 stages, direct end-labels collide, so we don't draw them. */}
 
                 {/* hover markers */}
                 {hover != null &&

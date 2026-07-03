@@ -89,11 +89,6 @@
   fill: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.endLabel {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-}
 
 /* ---- Legend ---- */
 .legend {
