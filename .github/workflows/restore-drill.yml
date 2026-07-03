@@ -27,6 +27,7 @@ concurrency:
 
 permissions:
   contents: read # download Release assets
+  issues: write # open an alert issue if a drill fails
 
 jobs:
   drill:
@@ -122,3 +123,20 @@ jobs:
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"; echo "Result: **PASSED** ✅" >> "$GITHUB_STEP_SUMMARY"
           echo "Restore drill PASSED"
+
+      - name: Alert on failure (open/append a GitHub issue)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Body assembled from trusted GitHub context only (no external input).
+          BODY="$(printf 'The scheduled restore-integrity drill FAILED — the most recent DB backup could not be cleanly restored/verified.\n\nRun: %s\n\nInvestigate before it is needed: open the run, read the **Verify schema + data** step, and check the newest `backup-*` release. See BACKUP.md.' "$RUN_URL")"
+          # De-dupe: comment on an existing open alert if one is present, else open a new one.
+          EXISTING="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label restore-drill-failure --json number --jq '.[0].number' 2>/dev/null || true)"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          else
+            gh label create restore-drill-failure --repo "$GITHUB_REPOSITORY" --color b60205 --description "Restore drill failures" 2>/dev/null || true
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "🔴 Restore drill failed — backup may not be restorable" --label restore-drill-failure --body "$BODY"
+          fi
