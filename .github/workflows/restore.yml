@@ -80,6 +80,7 @@ jobs:
         env:
           NEON_API: ${{ secrets.NEON_API }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
           INPUT_NAME: ${{ github.event.inputs.branch_name }}
           RUN_ID: ${{ github.run_id }}
         run: |
@@ -125,10 +126,27 @@ jobs:
                 echo "::error::Listing projects for the org failed."; exit 1; }
             fi
             COUNT="$(echo "$NEON_BODY" | jq '.projects | length')"
-            if [ "$COUNT" != "1" ]; then
-              echo "::error::Found $COUNT Neon projects. Set the NEON_PROJECT_ID repo variable to disambiguate."; exit 1
+            if [ "$COUNT" = "1" ]; then
+              PID="$(echo "$NEON_BODY" | jq -r '.projects[0].id')"
+            else
+              # Multiple projects: pick the one that OWNS the endpoint in
+              # BACKUP_DATABASE_URL, so we restore into the backup's own project.
+              # Done privately (nothing sensitive printed on this PUBLIC repo).
+              [ -n "$BACKUP_DATABASE_URL" ] || {
+                echo "::error::Found $COUNT Neon projects and BACKUP_DATABASE_URL is unset — set the NEON_PROJECT_ID repo variable to disambiguate."; exit 1; }
+              BK_HOST="$(printf '%s' "$BACKUP_DATABASE_URL" | sed -E 's#^.*@##; s#[:/?].*$##')"
+              echo "::add-mask::$BK_HOST"
+              PIDS="$(echo "$NEON_BODY" | jq -r '.projects[].id')"
+              for p in $PIDS; do
+                neon_api GET "$NEON_API_HOST/projects/$p/endpoints" || continue
+                if echo "$NEON_BODY" | jq -e --arg h "$BK_HOST" '.endpoints[]? | select(.host==$h)' >/dev/null 2>&1; then
+                  PID="$p"; break
+                fi
+              done
+              [ -n "$PID" ] || {
+                echo "::error::Could not match the backup's DB host to any of the $COUNT Neon projects. Set the NEON_PROJECT_ID repo variable to the right project."; exit 1; }
+              echo "Matched backup's DB host to its Neon project."
             fi
-            PID="$(echo "$NEON_BODY" | jq -r '.projects[0].id')"
           fi
           echo "Neon project: $PID"
           BRANCH="${INPUT_NAME:-restore-${RUN_ID}}"
