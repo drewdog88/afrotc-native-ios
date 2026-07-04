@@ -1,8 +1,38 @@
-# Det 695 — iOS app
+<div align="center">
 
-A native SwiftUI client for the Det 695 recruiting backend. It talks to the same
-FastAPI service and OpenAPI contract as the web app (`../shared/openapi.json`),
-so the two clients read as one product.
+# 📱 Det 695 — iOS app
+
+**A native SwiftUI client for the Det 695 recruiting backend.** It talks to the
+same FastAPI service and OpenAPI contract as the web app
+(`../shared/openapi.json`), so the two clients read as one product.
+
+![Swift](https://img.shields.io/badge/Swift-F05138?style=flat-square&logo=swift&logoColor=white)
+![SwiftUI](https://img.shields.io/badge/SwiftUI-0C1C33?style=flat-square&logo=apple&logoColor=white)
+![Xcode](https://img.shields.io/badge/Xcode_15+-147EFB?style=flat-square&logo=xcode&logoColor=white)
+![iOS](https://img.shields.io/badge/iOS_17+-000000?style=flat-square&logo=apple&logoColor=white)
+
+</div>
+
+```mermaid
+flowchart LR
+    LOGIN["🔐 Login<br>Keychain JWT"]
+    SHELL["Tabbed shell"]
+    DASH["📊 Dashboard<br>stats + funnel"]
+    REC["🎯 Recruits"]
+    CAD["🎓 Cadets"]
+    API["⚙️ FastAPI<br>/api/v1"]
+
+    LOGIN -->|token| SHELL
+    SHELL --> DASH & REC & CAD
+    DASH & REC & CAD -->|async URLSession| API
+
+    classDef ios fill:#0c1c33,stroke:#050d1a,color:#ffffff
+    classDef api fill:#2f9bd8,stroke:#1d6fa0,color:#ffffff
+    classDef edge fill:#f2a83b,stroke:#c9852a,color:#3a2600
+    class SHELL,DASH,REC,CAD ios
+    class API api
+    class LOGIN edge
+```
 
 ## What's here
 
