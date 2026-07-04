@@ -5,7 +5,7 @@
 **Where the platform is, and where it's going.** Not a promise — a living list.
 
 ![Status](https://img.shields.io/badge/core_platform-live-2f8f6b?style=for-the-badge)
-![Next](https://img.shields.io/badge/next-automated_tests-f2a83b?style=for-the-badge)
+![Next](https://img.shields.io/badge/next-client_tests_%26_docs-f2a83b?style=for-the-badge)
 ![Constraint](https://img.shields.io/badge/infra-free_tier_only-1e4c87?style=for-the-badge)
 
 </div>
@@ -20,9 +20,10 @@ flowchart LR
         D3["Analytics + Territory map"]
         D4["Security + backups/restore drill"]
         D5["Det 695 crest everywhere"]
+        D6["Backend test suite<br>95 pytest tests, green"]
     end
     subgraph next["🔜 Next"]
-        N1["Automated tests<br>pytest + iOS/web"]
+        N1["Client tests<br>iOS + web coverage"]
         N2["Docs hygiene"]
         N3["Neon branch hygiene"]
     end
@@ -38,7 +39,7 @@ flowchart LR
     classDef ok fill:#2f8f6b,stroke:#1c6349,color:#ffffff
     classDef soon fill:#f2a83b,stroke:#c9852a,color:#3a2600
     classDef idea fill:#1e4c87,stroke:#16396a,color:#ffffff
-    class D1,D2,D3,D4,D5 ok
+    class D1,D2,D3,D4,D5,D6 ok
     class N1,N2,N3 soon
     class L1,L2,L3,L4 idea
 ```
@@ -52,10 +53,11 @@ flowchart LR
 - Security: JWT auth with refresh, bcrypt passwords with lockout/history/expiry, Fernet-encrypted TOTP 2FA, activity log, and a hardened CSP + header set on Vercel.
 - Data protection: nightly `pg_dump` → GitHub Release backups and a weekly automated restore drill.
 - Web + iOS both carry the real Detachment 695 crest.
+- **Backend test suite:** 95 pytest tests across 15 files, green today — every `/api/v1` endpoint module (auth, funnel, cadets, contacts, events, follow-ups, materials, imports, exports, analytics, profile/2FA), plus admin guardrails and the read-only viewer role. See [Testing](Testing).
 
 ## 🔜 Next
 
-- **Automated tests.** The pytest toolchain is wired but empty — add API tests (auth, funnel, materials, import, admin guardrails) and iOS/web coverage. See [Testing](Testing).
+- **Client tests.** The backend is well covered; add iOS `*Tests.swift` and web unit/component tests so the two clients aren't relying solely on the smoke affordance and screenshot pipeline. See [Testing](Testing).
 - **Docs hygiene.** Root README + per-surface READMEs kept current; retire the leftover Vite starter template content in `web/`.
 - **Neon branch hygiene.** Prune per-deploy Neon branches and consider disabling auto-branch creation in the Neon–Vercel integration to stay tidy on the free plan.
 
