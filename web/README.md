@@ -1,8 +1,19 @@
-# AFROTC Det 695 — Web (React + TypeScript + Vite)
+<div align="center">
 
-The browser client for the Det 695 recruiting platform. It shares the API
+# 🌐 AFROTC Det 695 — Web (React + TypeScript + Vite)
+
+**The browser client for the Det 695 recruiting platform.** It shares the API
 contract (`../shared/openapi.json`) with the SwiftUI iOS app, so the two read as
 one product.
+
+![React](https://img.shields.io/badge/React_19-20232A?style=flat-square&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite_8-646CFF?style=flat-square&logo=vite&logoColor=white)
+![TanStack Query](https://img.shields.io/badge/TanStack_Query-FF4154?style=flat-square&logo=reactquery&logoColor=white)
+![MapLibre](https://img.shields.io/badge/MapLibre-396CB2?style=flat-square&logo=maplibre&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
+
+</div>
 
 ## Stack
 
@@ -39,9 +50,6 @@ src/
                     Territory, ImportRecruits, Profile, Admin
   styles/tokens.css design tokens (mirrored into the iOS Theme)
 ```
-
-> Note: `App.tsx`/`App.css` are the leftover Vite starter and are not used — the
-> real entry is `main.tsx`.
 
 ## Regenerate the API types after a backend change
 

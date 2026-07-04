@@ -1,8 +1,19 @@
-# AFROTC Detachment 695 — Recruiting Platform
+<div align="center">
 
-One product, three surfaces, one database. A recruiting and cadet-management
+# 🎖️ AFROTC Detachment 695 — Recruiting Platform
+
+**One product, three surfaces, one database.** A recruiting and cadet-management
 platform for **AFROTC Detachment 695** (University of Portland), covering the
 Pacific Northwest.
+
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React_19-20232A?style=flat-square&logo=react&logoColor=61DAFB)
+![Swift](https://img.shields.io/badge/SwiftUI-F05138?style=flat-square&logo=swift&logoColor=white)
+![Postgres](https://img.shields.io/badge/Neon_Postgres-00E599?style=flat-square&logo=postgresql&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
+![Tests](https://img.shields.io/badge/pytest-95_passing-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
+
+</div>
 
 | Surface | Stack | Directory |
 |---|---|---|
@@ -14,6 +25,32 @@ All three talk to the **same Neon Postgres database through the same API
 contract** ([`shared/openapi.json`](shared/openapi.json)) — a data edit shows up
 everywhere at once. Full documentation is in the
 **[project wiki](https://github.com/drewdog88/afrotc-native-ios/wiki)**.
+
+```mermaid
+flowchart TD
+    WEB["🌐 Web<br>React 19 · Vite"]
+    IOS["📱 iOS<br>SwiftUI"]
+    CONTRACT{{"📄 shared/openapi.json<br>one API contract"}}
+    API["⚙️ FastAPI service<br>auth · recruiting · analytics"]
+    DB[("🐘 Neon Postgres<br>the only datastore")]
+
+    WEB & IOS -->|"HTTPS + Bearer JWT"| API
+    WEB -.generated types.-> CONTRACT
+    IOS -.mirrored models.-> CONTRACT
+    CONTRACT -.describes.-> API
+    API --> DB
+
+    classDef web fill:#1e4c87,stroke:#16396a,color:#ffffff
+    classDef ios fill:#0c1c33,stroke:#050d1a,color:#ffffff
+    classDef api fill:#2f9bd8,stroke:#1d6fa0,color:#ffffff
+    classDef db fill:#00E599,stroke:#00996a,color:#04321f
+    classDef edge fill:#f2a83b,stroke:#c9852a,color:#3a2600
+    class WEB web
+    class IOS ios
+    class API api
+    class DB db
+    class CONTRACT edge
+```
 
 ## Quickstart
 
