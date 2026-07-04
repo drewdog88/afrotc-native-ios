@@ -1,15 +1,23 @@
-# Backend API
+<div align="center">
 
-The headless JSON API that powers both clients. **FastAPI + SQLAlchemy 2.0 +
-Neon Postgres.** Interactive OpenAPI docs at `/docs`; the exported contract lives
-at `shared/openapi.json`.
+# ⚙️ Backend API
+
+**The headless JSON API that powers both clients.**
+
+![FastAPI](https://img.shields.io/badge/FastAPI_0.115+-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python_3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy_2.0-CA2A2A?style=flat-square&logo=sqlalchemy&logoColor=white)
+![Pydantic](https://img.shields.io/badge/Pydantic_v2-E92063?style=flat-square&logo=pydantic&logoColor=white)
+![Neon](https://img.shields.io/badge/Neon_Postgres-00E599?style=flat-square&logo=neon&logoColor=black)
+![JWT](https://img.shields.io/badge/JWT-000000?style=flat-square&logo=jsonwebtokens&logoColor=white)
+
+</div>
+
+Interactive OpenAPI docs at `/docs`; the exported contract lives at `shared/openapi.json`.
 
 ## Stack
 
-FastAPI (`>=0.115`) · Uvicorn · SQLAlchemy 2.0 · Alembic · Pydantic v2 /
-pydantic-settings · psycopg 3 · python-jose (JWT) · bcrypt · pyotp (TOTP) ·
-cryptography (Fernet) · pandas + openpyxl + reportlab (import/export). Python
-**≥ 3.11**, managed with **uv**.
+FastAPI (`>=0.115`) · Uvicorn · SQLAlchemy 2.0 · Alembic · Pydantic v2 / pydantic-settings · psycopg 3 · python-jose (JWT) · bcrypt · pyotp (TOTP) · cryptography (Fernet) · pandas + openpyxl + reportlab (import/export). Python **≥ 3.11**, managed with **uv**.
 
 ## Run it
 
@@ -21,15 +29,29 @@ uv sync --extra dev
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-`http://localhost:8000/docs` for Swagger UI. (The iOS app defaults to port
-**8099** — run it there when working with the simulator.)
+`http://localhost:8000/docs` for Swagger UI. (The iOS app defaults to port **8099** — run it there when working with the simulator.)
 
-> **Postgres only.** `config.py` validates `DATABASE_URL` and *rejects* anything
-> that isn't a `postgresql` URL — there is no SQLite/local fallback at runtime.
-> The schema is owned entirely by Alembic; the app never auto-creates tables. See
-> [Database](Database).
+> **Postgres only.** `config.py` validates `DATABASE_URL` and *rejects* anything that isn't a `postgresql` URL — there is no SQLite/local fallback at runtime. The schema is owned entirely by Alembic; the app never auto-creates tables. See [Database](Database).
 
-## Shape
+## Inside the app — how a request travels
+
+```mermaid
+flowchart LR
+    REQ(["HTTP request"]) --> MAIN["main.py<br>FastAPI app · CORS · /health"]
+    MAIN --> R["api/v1/router.py<br>aggregates routers @ /api/v1"]
+    R --> DEPS["api/deps.py<br>pagination · get_current_user<br>· require_admin"]
+    DEPS --> RT["router handler<br>(auth, recruits, ...)"]
+    RT --> SCH["schemas/<br>Pydantic validate/serialize"]
+    RT --> SVC["services/<br>CRUDBase + helpers"]
+    SVC --> MOD["models/<br>SQLAlchemy 2.0 ORM"]
+    MOD --> CORE["core/database<br>engine + session"]
+    CORE --> DB[("🗄️ Neon Postgres")]
+
+    classDef api fill:#2f9bd8,stroke:#1c6fa0,color:#05243a
+    classDef db fill:#00E599,stroke:#0c9b73,color:#04241f
+    class MAIN,R,DEPS,RT,SCH,SVC,MOD,CORE api
+    class DB db
+```
 
 ```
 backend/app/
@@ -43,17 +65,35 @@ backend/app/
   services/     CRUDBase and helpers
 ```
 
-Meta routes (outside the prefix): `GET /health` → `{"status":"ok"}`, `GET /` →
-name + docs link.
+Meta routes (outside the prefix): `GET /health` → `{"status":"ok"}`, `GET /` → name + docs link.
 
-## Endpoints (all under `/api/v1`)
+## The endpoint map
 
-Everything requires `Authorization: Bearer <jwt>` except `POST /auth/login` and
-`POST /auth/refresh`.
+```mermaid
+flowchart LR
+    V["/api/v1"] --> AUTH["🔑 /auth"]
+    V --> REC["🎯 /recruits"]
+    V --> CAD["🎓 /cadets"]
+    V --> CON["🏫 /contacts"]
+    V --> EVT["📅 /events"]
+    V --> FUP["✅ /followups"]
+    V --> MAT["📎 /materials"]
+    V --> ANA["📊 /analytics"]
+    V --> DASH["📈 /dashboard"]
+    V --> EXP["📤 /export"]
+    V --> PRO["👤 /profile"]
+    V --> ADM["🛡️ /admin"]
+
+    classDef root fill:#0c1c33,stroke:#000,color:#fff
+    classDef leaf fill:#2f9bd8,stroke:#1c6fa0,color:#05243a
+    class V root
+    class AUTH,REC,CAD,CON,EVT,FUP,MAT,ANA,DASH,EXP,PRO,ADM leaf
+```
+
+Everything requires `Authorization: Bearer <jwt>` except `POST /auth/login` and `POST /auth/refresh`.
 
 **Auth** (`/auth`)
-- `POST /auth/login` — credentials (+ optional TOTP) → access + refresh token pair;
-  handles lockout, disabled accounts, forced password change.
+- `POST /auth/login` — credentials (+ optional TOTP) → access + refresh token pair; handles lockout, disabled accounts, forced password change.
 - `POST /auth/refresh` — refresh token → new access token.
 - `POST /auth/logout` — 204 (stateless; client discards tokens).
 - `GET /auth/me` — the current user.
@@ -62,64 +102,40 @@ Everything requires `Authorization: Bearer <jwt>` except `POST /auth/login` and
 **Recruits** (`/recruits`) — the reference CRUD router
 - `GET /recruits` — paginated; filters `search`, `stage`, `school_type`.
 - `GET|POST|PATCH|DELETE /recruits[/{id}]` — CRUD (create seeds a baseline stage event).
-- `POST /recruits/{id}/stage` — change funnel stage; appends an immutable
-  `RecruitStageEvent`.
+- `POST /recruits/{id}/stage` — change funnel stage; appends an immutable `RecruitStageEvent`.
 - `GET /recruits/{id}/stage-history` — the stage-change audit trail.
-- `POST /recruits/import` — bulk CSV/Excel upload (pandas), per-row validation,
-  returns an `ImportResult` with row-level errors.
+- `POST /recruits/import` — bulk CSV/Excel upload (pandas), per-row validation, returns an `ImportResult` with row-level errors. See the [import pipeline](How-It-Works#5--the-csvexcel-import-pipeline).
 
-**Cadets** (`/cadets`), **Contacts** (`/contacts`), **Events** (`/events`) —
-standard `GET` (list + filters) / `GET /{id}` / `POST` / `PATCH /{id}` /
-`DELETE /{id}`.
+**Cadets** (`/cadets`), **Contacts** (`/contacts`), **Events** (`/events`) — standard `GET` (list + filters) / `GET /{id}` / `POST` / `PATCH /{id}` / `DELETE /{id}`.
 
-**Follow-ups** (`/followups`) — CRUD plus `POST /followups/{id}/complete`. List
-filter `assignee_id` accepts `"me"` or a user id, plus `status` and `due_before`.
+**Follow-ups** (`/followups`) — CRUD plus `POST /followups/{id}/complete`. List filter `assignee_id` accepts `"me"` or a user id, plus `status` and `due_before`.
 
 **Materials** (`/materials`)
 - Links: `GET|POST /materials/links`, `PATCH|DELETE /materials/links/{id}`.
-- Documents: `GET|POST /materials/documents` (multipart upload, enforces
-  `MAX_UPLOAD_BYTES`), `GET /materials/documents/{id}/download` (streamed),
-  `DELETE /materials/documents/{id}`.
+- Documents: `GET|POST /materials/documents` (multipart upload, enforces `MAX_UPLOAD_BYTES`), `GET /materials/documents/{id}/download` (streamed), `DELETE /materials/documents/{id}`.
 
 **Analytics & dashboard**
 - `GET /analytics/funnel` — count per stage (respects `FUNNEL_ORDER`), date window.
 - `GET /analytics/trends` — time-series of stage transitions (`interval=week|month`).
-- `GET /dashboard/stats` — totals, recruits-by-stage, cadets-by-status, open
-  follow-ups, ~8-week recruit-created trend.
+- `GET /dashboard/stats` — totals, recruits-by-stage, cadets-by-status, open follow-ups, ~8-week recruit-created trend.
 
-**Exports** (`/export`) — `GET /export/{entity}?format=csv|xlsx|pdf` for
-recruits / cadets / contacts / events.
+**Exports** (`/export`) — `GET /export/{entity}?format=csv|xlsx|pdf` for recruits / cadets / contacts / events.
 
 **Profile** (`/profile`) — get/update profile; 2FA setup / verify / disable (TOTP).
 
-**Admin** (`/admin`, admin-only) — user CRUD (blocks deleting the last admin) and
-`GET /admin/activity` (the activity log).
+**Admin** (`/admin`, admin-only) — user CRUD (blocks deleting the last admin) and `GET /admin/activity` (the activity log).
 
 ## Auth & security
 
-- **JWT** (HS256, python-jose) signed with `SECRET_KEY`. Access token ~30 min,
-  refresh ~14 days; clients refresh once on a 401 and retry.
-- **Passwords** hashed with bcrypt. Policy: lockout after `MAX_FAILED_LOGINS`,
-  reuse blocked against the last N (`PASSWORD_HISTORY_SIZE`), expiry
-  (`PASSWORD_EXPIRY_DAYS`, admins exempt).
-- **2FA**: TOTP via pyotp; the secret is **Fernet-encrypted at rest** using
-  `ENCRYPTION_KEY` (fails closed if unset).
+- **JWT** (HS256, python-jose) signed with `SECRET_KEY`. Access token ~30 min, refresh ~14 days; clients refresh once on a 401 and retry.
+- **Passwords** hashed with bcrypt. Policy: lockout after `MAX_FAILED_LOGINS`, reuse blocked against the last N (`PASSWORD_HISTORY_SIZE`), expiry (`PASSWORD_EXPIRY_DAYS`, admins exempt).
+- **2FA**: TOTP via pyotp; the secret is **Fernet-encrypted at rest** using `ENCRYPTION_KEY` (fails closed if unset).
 - **Activity log** records mutating actions for audit.
 
 ## Configuration (env vars — no secrets in the repo)
 
-`DATABASE_URL` (required, must be `postgresql`), `SECRET_KEY`, `ENCRYPTION_KEY`,
-`ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS`,
-`PASSWORD_EXPIRY_DAYS`, `MAX_FAILED_LOGINS`, `PASSWORD_HISTORY_SIZE`,
-`BOOTSTRAP_ADMIN_USERNAME` / `_EMAIL` / `_PASSWORD`, `MAX_UPLOAD_BYTES` (25 MB),
-`CORS_ORIGINS`, `CRON_SECRET`. Locally these live in `.env` (gitignored); in the
-cloud they're Vercel env vars / GitHub Actions secrets.
+`DATABASE_URL` (required, must be `postgresql`), `SECRET_KEY`, `ENCRYPTION_KEY`, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS`, `PASSWORD_EXPIRY_DAYS`, `MAX_FAILED_LOGINS`, `PASSWORD_HISTORY_SIZE`, `BOOTSTRAP_ADMIN_USERNAME` / `_EMAIL` / `_PASSWORD`, `MAX_UPLOAD_BYTES` (25 MB), `CORS_ORIGINS`, `CRON_SECRET`. Locally these live in `.env` (gitignored); in the cloud they're Vercel env vars / GitHub Actions secrets.
 
 ## Document storage
 
-Uploaded documents are stored as Postgres `bytea` on
-`recruitment_document.file_data` and streamed back on download. There is no
-external blob store — these files rarely change, and keeping them in Postgres
-means they're inside the nightly DB dump ([Backups &
-Recovery](Backups-and-Recovery)). (The legacy `blob_url` column remains, always
-NULL, only to avoid a production schema migration.)
+Uploaded documents are stored as Postgres `bytea` on `recruitment_document.file_data` and streamed back on download. There is no external blob store — these files rarely change, and keeping them in Postgres means they're inside the nightly DB dump ([Backups & Recovery](Backups-and-Recovery)). (The legacy `blob_url` column remains, always NULL, only to avoid a production schema migration.)
