@@ -186,11 +186,11 @@ function DocumentsPanel({ search, canWrite }: { search: string; canWrite: boolea
                   <td className={styles.right}>
                     <div className={styles.rowActions}>
                       <button
-                        className=”btn btn-ghost”
+                        className="btn btn-ghost"
                         onClick={() => download(doc)}
                         disabled={downloadingId === doc.id}
                       >
-                        {downloadingId === doc.id ? “Preparing…” : “Download”}
+                        {downloadingId === doc.id ? "Preparing…" : "Download"}
                       </button>
                       {canWrite && (
                         <button
@@ -400,16 +400,16 @@ function LinksPanel({ search, canWrite }: { search: string; canWrite: boolean })
                   <td className={styles.right}>
                     <div className={styles.rowActions}>
                       <a
-                        className=”btn btn-ghost”
+                        className="btn btn-ghost"
                         href={link.url}
-                        target=”_blank”
-                        rel=”noreferrer noopener”
+                        target="_blank"
+                        rel="noreferrer noopener"
                       >
                         Open
                       </a>
                       {canWrite && (
                         <>
-                          <button className=”btn btn-ghost” onClick={() => setEditing(link)}>
+                          <button className="btn btn-ghost" onClick={() => setEditing(link)}>
                             Edit
                           </button>
                           <button
