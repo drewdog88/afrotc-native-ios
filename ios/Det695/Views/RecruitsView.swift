@@ -6,12 +6,16 @@ struct RecruitRoute: Hashable { let id: Int }
 /// Recruits list with search + stage filter, mirroring the web Recruits page.
 struct RecruitsView: View {
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var session: Session
     @State private var recruits: [RecruitOut] = []
     @State private var search = ""
     @State private var stage: RecruitStage?
     @State private var error: String?
     @State private var loading = false
     @State private var showCreate = false
+    @State private var showImport = false
+
+    private var canWrite: Bool { (session.user?.role ?? "viewer") != "viewer" }
 
     var body: some View {
         NavigationStack {
@@ -35,8 +39,19 @@ struct RecruitsView: View {
             .searchable(text: $search, prompt: "Search recruits")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showCreate = true
+                    Menu {
+                        Button {
+                            showCreate = true
+                        } label: {
+                            Label("Add recruit", systemImage: "plus")
+                        }
+                        if canWrite {
+                            Button {
+                                showImport = true
+                            } label: {
+                                Label("Import from file", systemImage: "square.and.arrow.down")
+                            }
+                        }
                     } label: {
                         Label("Add", systemImage: "plus")
                     }
@@ -57,6 +72,9 @@ struct RecruitsView: View {
             .refreshable { await load() }
             .sheet(isPresented: $showCreate) {
                 RecruitFormSheet(mode: .create) { await load() }
+            }
+            .sheet(isPresented: $showImport) {
+                ImportRecruitsView { Task { await load() } }
             }
             .onAppear {
                 if let pendingStage = router.pendingRecruitStage {

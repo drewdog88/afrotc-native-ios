@@ -33,3 +33,22 @@ struct UserOut: Decodable, Identifiable {
     let isAdmin: Bool
     var phone: String?
 }
+
+// MARK: - Password reset (security-question flow)
+
+/// POST /auth/forgot-password — identify an account by username or email.
+struct ForgotPasswordRequest: Encodable {
+    let username: String  // accepts username or email
+}
+
+/// The security question returned for a located account.
+struct SecretQuestionOut: Decodable {
+    let secretQuestion: String
+}
+
+/// POST /auth/reset-password — answer the question and set a new password.
+struct ResetPasswordRequest: Encodable {
+    let username: String
+    let secretAnswer: String
+    let newPassword: String
+}

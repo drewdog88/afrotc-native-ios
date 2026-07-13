@@ -6,6 +6,7 @@ struct LoginView: View {
     @State private var username = ""
     @State private var password = ""
     @State private var totp = ""
+    @State private var showForgot = false
     @FocusState private var focus: Field?
 
     private enum Field { case username, password, totp }
@@ -68,10 +69,15 @@ struct LoginView: View {
                 .controlSize(.large)
                 .frame(maxWidth: .infinity)
                 .disabled(session.isSubmitting || username.isEmpty || password.isEmpty)
+
+                Button("Forgot password?") { showForgot = true }
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Theme.accent)
             }
             .padding(28)
             .frame(maxWidth: 420)
         }
+        .sheet(isPresented: $showForgot) { ForgotPasswordView() }
     }
 
     private func submit() {

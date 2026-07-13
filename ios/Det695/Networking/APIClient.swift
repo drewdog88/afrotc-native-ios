@@ -62,6 +62,21 @@ actor APIClient {
         try await requestJSON("/auth/me", method: "GET", bodyData: nil, authed: true)
     }
 
+    /// Step 1 of self-service reset — returns the account's security question.
+    func forgotPassword(username: String) async throws -> SecretQuestionOut {
+        let body = ForgotPasswordRequest(username: username)
+        return try await requestJSON("/auth/forgot-password", method: "POST",
+                                     bodyData: try encoder.encode(body), authed: false)
+    }
+
+    /// Step 2 — answer the question and set a new password (also clears lockout).
+    @discardableResult
+    func resetPassword(username: String, secretAnswer: String, newPassword: String) async throws -> UserOut {
+        let body = ResetPasswordRequest(username: username, secretAnswer: secretAnswer, newPassword: newPassword)
+        return try await requestJSON("/auth/reset-password", method: "POST",
+                                     bodyData: try encoder.encode(body), authed: false)
+    }
+
     // MARK: - Profile & security
 
     func profile() async throws -> UserOut {
@@ -249,6 +264,23 @@ actor APIClient {
     }
     func deleteDocument(id: Int) async throws {
         _ = try await requestData("/materials/documents/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
+    // MARK: - Bulk import
+
+    /// Upload a CSV/Excel roster to `/recruits/import` as multipart/form-data and
+    /// get back the per-row result. Write-gated on the backend (`require_write`).
+    func importRecruits(fileData: Data, filename: String, mimeType: String) async throws -> ImportResult {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body = Data()
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n")
+        body.append("Content-Type: \(mimeType)\r\n\r\n")
+        body.append(fileData)
+        body.append("\r\n--\(boundary)--\r\n")
+        return try await requestJSON("/recruits/import", method: "POST", bodyData: body,
+                                     authed: true,
+                                     contentType: "multipart/form-data; boundary=\(boundary)")
     }
 
     // MARK: - Admin
