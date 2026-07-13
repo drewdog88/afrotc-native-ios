@@ -1,0 +1,26 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - img [ref=e6]
+      - generic [ref=e7]:
+        - generic [ref=e8]: Detachment 695
+        - generic [ref=e9]: Air Force ROTC
+    - generic [ref=e10]:
+      - generic [ref=e11]: Recruiting Operations
+      - heading "Every recruit is a climb to commission." [level=1] [ref=e12]
+      - paragraph [ref=e13]: Track each prospect through the ascent — lead to commissioned — and watch the detachment's momentum change over time.
+    - generic [ref=e20]: AUTHORIZED PERSONNEL · DET 695 · USAF
+  - generic [ref=e22]:
+    - heading "Sign in" [level=2] [ref=e23]
+    - paragraph [ref=e24]: Access the detachment recruiting dashboard.
+    - generic [ref=e25]:
+      - generic [ref=e26]: Username or email
+      - textbox "Username or email" [active] [ref=e27]
+    - generic [ref=e28]:
+      - generic [ref=e29]: Password
+      - textbox "Password" [ref=e30]
+    - button "Sign in" [ref=e31] [cursor=pointer]
+    - paragraph [ref=e32]:
+      - link "Forgot your password?" [ref=e33] [cursor=pointer]:
+        - /url: /forgot-password
+      - text: · Trouble signing in? Contact a detachment administrator.
