@@ -11,6 +11,7 @@ struct CadetsView: View {
     @EnvironmentObject private var router: AppRouter
 
     @State private var cadets: [CadetOut] = []
+    @State private var total = 0
     @State private var search = ""
     @State private var status: String?
     @State private var error: String?
@@ -20,6 +21,11 @@ struct CadetsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    CadetStatusChips(statuses: Self.statuses, status: $status)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                        .listRowSeparator(.hidden)
+                }
                 if let error {
                     Text(error).foregroundStyle(Theme.danger)
                 }
@@ -27,7 +33,20 @@ struct CadetsView: View {
                     NavigationLink(value: CadetRoute(id: c.id)) { CadetRow(cadet: c) }
                 }
                 if cadets.isEmpty && !loading && error == nil {
-                    ContentUnavailableView("No cadets", systemImage: "shield")
+                    ContentUnavailableView {
+                        Label(isFiltered ? "No matches" : "No cadets yet", systemImage: "shield")
+                    } description: {
+                        Text(isFiltered
+                             ? "No cadets match this view."
+                             : "Add your first cadet to build the roster.")
+                    }
+                    .listRowSeparator(.hidden)
+                }
+                if !cadets.isEmpty {
+                    Text(countLabel)
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .listRowSeparator(.hidden)
                 }
             }
             .listStyle(.plain)
@@ -38,22 +57,11 @@ struct CadetsView: View {
             .navigationDestination(for: CadetRoute.self) { CadetDetailView(cadetId: $0.id) }
             .searchable(text: $search, prompt: "Search cadets")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showingCreateSheet = true
                     } label: {
                         Label("Add", systemImage: "plus")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("All statuses") { status = nil }
-                        Divider()
-                        ForEach(Self.statuses, id: \.self) { s in
-                            Button(s.capitalized) { status = s }
-                        }
-                    } label: {
-                        Label(status?.capitalized ?? "All", systemImage: "line.3.horizontal.decrease.circle")
                     }
                 }
             }
@@ -78,16 +86,69 @@ struct CadetsView: View {
     }
 
     private var filterKey: String { "\(search)|\(status ?? "")" }
+    private var isFiltered: Bool { !search.isEmpty || status != nil }
+
+    private var countLabel: String {
+        let shown = cadets.count
+        let suffix = total > shown ? " of \(total)" : ""
+        return "\(shown)\(suffix) cadet\(total == 1 ? "" : "s")"
+    }
 
     private func load() async {
         loading = true
         error = nil
         defer { loading = false }
         do {
-            cadets = try await APIClient.shared.cadets(search: search, status: status).items
+            let page = try await APIClient.shared.cadets(search: search, status: status)
+            cadets = page.items
+            total = page.total
         } catch {
             self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
         }
+    }
+}
+
+/// Status filter chips (All + active/inactive/graduated), mirroring the web chip row.
+private struct CadetStatusChips: View {
+    let statuses: [String]
+    @Binding var status: String?
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                chip(label: "All", active: status == nil, tint: Theme.ink) { status = nil }
+                ForEach(statuses, id: \.self) { s in
+                    chip(label: s.capitalized, active: status == s,
+                         tint: Theme.cadetStatusColor(s)) {
+                        status = (status == s) ? nil : s
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private func chip(label: String, active: Bool, tint: Color, tap: @escaping () -> Void) -> some View {
+        Button(action: tap) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(active ? tint : tint.opacity(0.12), in: Capsule())
+                .foregroundStyle(active ? .white : tint)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A pill showing the cadet status with a tinted background, mirroring the web StatusPill.
+struct CadetStatusPill: View {
+    let status: String
+    var body: some View {
+        Text(status.prefix(1).uppercased() + status.dropFirst())
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Theme.cadetStatusColor(status).opacity(0.18), in: Capsule())
+            .foregroundStyle(Theme.cadetStatusColor(status))
     }
 }
 
@@ -101,13 +162,11 @@ private struct CadetRow: View {
                 .frame(width: 10, height: 10)
             VStack(alignment: .leading, spacing: 2) {
                 Text(cadet.fullName).font(.body.weight(.semibold))
-                Text("\(cadet.cadetRank) · \(cadet.major)")
+                Text("\(cadet.cadetRank) · \(cadet.major) · '\(String(cadet.graduationYear).suffix(2))")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Text(cadet.statusLabel)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(Theme.cadetStatusColor(cadet.status))
+            CadetStatusPill(status: cadet.status)
         }
         .padding(.vertical, 4)
     }
@@ -132,8 +191,7 @@ struct CadetDetailView: View {
                         HStack {
                             Text("Status").foregroundStyle(.secondary)
                             Spacer()
-                            Text(c.statusLabel)
-                                .foregroundStyle(Theme.cadetStatusColor(c.status))
+                            CadetStatusPill(status: c.status)
                         }
                         LabeledRow("Rank", c.cadetRank)
                         LabeledRow("Major", c.major)
@@ -196,12 +254,12 @@ struct CadetDetailView: View {
             }
         }
         .confirmationDialog("Delete this cadet?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+            Button("Delete \(cadet?.fullName ?? "cadet")", role: .destructive) {
                 Task { await deleteCadet() }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This action cannot be undone.")
+            Text("This permanently removes \(cadet?.fullName ?? "this cadet"). This can't be undone.")
         }
         .task { await load() }
     }
