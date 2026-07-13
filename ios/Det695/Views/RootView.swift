@@ -110,7 +110,7 @@ struct MainTabView: View {
 /// NavigationStack. Each destination declares its own typed routes for detail.
 struct MoreView: View {
     enum Destination: String, CaseIterable, Hashable {
-        case contacts, events, followups, materials, profile
+        case contacts, events, followups, materials, profile, admin
 
         var title: String {
             switch self {
@@ -119,6 +119,7 @@ struct MoreView: View {
             case .followups: "Follow-ups"
             case .materials: "Materials"
             case .profile: "Profile & Security"
+            case .admin: "Admin"
             }
         }
         var icon: String {
@@ -128,15 +129,26 @@ struct MoreView: View {
             case .followups: "checklist"
             case .materials: "folder"
             case .profile: "person.crop.circle"
+            case .admin: "person.2.badge.gearshape"
             }
         }
+        /// `.admin` is only surfaced to detachment admins; everything else is
+        /// visible to any signed-in user.
+        var adminOnly: Bool { self == .admin }
     }
 
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var session: Session
+
+    /// Hub rows the current user may see — `.admin` is dropped for non-admins.
+    private var destinations: [Destination] {
+        let isAdmin = session.user?.isAdmin == true
+        return Destination.allCases.filter { isAdmin || !$0.adminOnly }
+    }
 
     var body: some View {
         NavigationStack(path: $router.morePath) {
-            List(Destination.allCases, id: \.self) { d in
+            List(destinations, id: \.self) { d in
                 NavigationLink(value: d) {
                     Label(d.title, systemImage: d.icon)
                 }
@@ -151,6 +163,7 @@ struct MoreView: View {
                 case .followups: FollowUpsView()
                 case .materials: MaterialsView()
                 case .profile: ProfileView()
+                case .admin: AdminView()
                 }
             }
         }

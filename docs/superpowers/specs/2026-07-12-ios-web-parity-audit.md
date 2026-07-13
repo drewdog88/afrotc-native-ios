@@ -8,7 +8,7 @@ checked off here as they land.
 
 ## Headline
 
-**Overall parity ≈ 55%.** Five entire web screens have no iOS equivalent, and
+**Overall parity ≈ 78%.** Three entire web screens still have no iOS equivalent, and
 several screens that *do* exist are missing sub-features (create/edit/delete,
 charts, calendar, item counts, geocoding, richer empty/error/loading states).
 
@@ -16,7 +16,7 @@ charts, calendar, item counts, geocoding, richer empty/error/loading states).
 
 | Web screen | What it does | iOS |
 |---|---|---|
-| **Admin** (`Admin.tsx`) | Admin-gated user management (list/search, add user, role picker, active toggle, delete) + paginated activity/audit log | ❌ none |
+| **Admin** (`Admin.tsx`) | Admin-gated user management (list/search, add user, role picker, active toggle, delete) + paginated activity/audit log | ✅ **done** — `AdminView` in the More hub (admin-gated): Users/Activity segmented console, searchable user list with inline role menu + active toggle + swipe-delete (self-row guarded), "Add user" sheet, activity log with 25-row "Load more" |
 | **Profile** (`Profile.tsx`) | View/edit profile (name/email/phone), change password, full 2FA/TOTP lifecycle (setup → verify → disable) | ✅ **done** — `ProfileView` in the More hub (view/edit, change password, 2FA copyable secret + URI, Sign Out) |
 | **Bulk import** (`ImportRecruits.tsx`) | 3-step CSV/Excel wizard: upload → per-row review (success/fail + errors) → summary | ❌ none |
 | **Forgot password** (`ForgotPassword.tsx`) | Security-question reset flow (identify → answer → new password) | ❌ none (users locked out can't self-recover) |
@@ -25,7 +25,7 @@ charts, calendar, item counts, geocoding, richer empty/error/loading states).
 **Also missing / not surfaced:**
 - ✅ **Sign out** — now surfaced as a destructive footer button in `ProfileView` (confirmation dialog → `Session.logout()`).
 - ✅ **Profile/Settings entry point** — `.profile` destination ("Profile & Security") added to the More hub.
-- **Admin gating** — `UserOut.isAdmin` is decoded but gates nothing. (Pending — arrives with the Admin console, item #4.)
+- ✅ **Admin gating** — `UserOut.isAdmin` now gates the `.admin` More-hub row (dropped entirely for non-admins) and `AdminView` shows a restricted notice as a defensive fallback.
 
 ## Tier 2 — Screens that exist but lack sub-features
 
