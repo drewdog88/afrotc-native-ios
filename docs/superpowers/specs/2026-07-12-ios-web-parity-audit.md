@@ -8,7 +8,7 @@ checked off here as they land.
 
 ## Headline
 
-**Overall parity ≈ 78%.** Three entire web screens still have no iOS equivalent, and
+**Overall parity ≈ 85%.** Two entire web screens still have no iOS equivalent, and
 several screens that *do* exist are missing sub-features (create/edit/delete,
 charts, calendar, item counts, geocoding, richer empty/error/loading states).
 
@@ -20,7 +20,7 @@ charts, calendar, item counts, geocoding, richer empty/error/loading states).
 | **Profile** (`Profile.tsx`) | View/edit profile (name/email/phone), change password, full 2FA/TOTP lifecycle (setup → verify → disable) | ✅ **done** — `ProfileView` in the More hub (view/edit, change password, 2FA copyable secret + URI, Sign Out) |
 | **Bulk import** (`ImportRecruits.tsx`) | 3-step CSV/Excel wizard: upload → per-row review (success/fail + errors) → summary | ❌ none |
 | **Forgot password** (`ForgotPassword.tsx`) | Security-question reset flow (identify → answer → new password) | ❌ none (users locked out can't self-recover) |
-| **Territory** (`Territory.tsx`) | Map of geocoded contacts + events with synced list | ❌ none (design already drafted: `2026-07-12-ios-territory-map-design.md`) |
+| **Territory** (`Territory.tsx`) | Map of geocoded contacts + events with synced list | ✅ **done** — `TerritoryView` in the More hub: native MapKit map with kind-tinted pins (contacts amber / events green), draggable bottom sheet (filter chips w/ counts, located-places list, missing-coords footnote), pin↔row selection sync + fly-to, "Open" pushes existing Contact/Event detail |
 
 **Also missing / not surfaced:**
 - ✅ **Sign out** — now surfaced as a destructive footer button in `ProfileView` (confirmation dialog → `Session.logout()`).
