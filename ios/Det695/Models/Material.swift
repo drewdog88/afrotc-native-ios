@@ -39,3 +39,25 @@ struct DocumentOut: Decodable, Identifiable {
         return ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
     }
 }
+
+/// POST /materials/links — the encoder's `.convertToSnakeCase` maps these to the
+/// backend's `LinkCreate` (url is validated as an HttpUrl server-side).
+struct LinkCreateInput: Encodable {
+    let title: String
+    let url: String
+    var description: String?
+    var category: String = "general"
+    var isActive: Bool = true
+    var sortOrder: Int = 0
+}
+
+/// PATCH /materials/links/{id} — only the keys we send are changed
+/// (backend dumps with `exclude_unset`).
+struct LinkUpdateInput: Encodable {
+    var title: String?
+    var url: String?
+    var description: String?
+    var category: String?
+    var isActive: Bool?
+    var sortOrder: Int?
+}
