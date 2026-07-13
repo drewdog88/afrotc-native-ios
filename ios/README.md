@@ -81,7 +81,8 @@ reaches on the Mac host. Start the backend first:
 cd ../backend && uv run uvicorn app.main:app --port 8099
 ```
 
-Log in with the demo admin: `admin` / `***REMOVED-CREDENTIAL***`.
+Log in with the demo admin `admin` and whatever password you seeded via
+`DET695_ADMIN_PASSWORD` (see `backend/scripts/seed_demo.py`).
 
 To target a different backend (e.g. a physical device on your LAN, or a deployed
 URL), set the `DET695_API_BASE` environment variable in the Run scheme, e.g.

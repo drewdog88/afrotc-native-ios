@@ -70,7 +70,8 @@ cd web && npm install && npm run dev     # http://localhost:5173
 cd ios && xcodegen generate && open Det695.xcodeproj   # ⌘R
 ```
 
-Log in everywhere with `admin` / `***REMOVED-CREDENTIAL***`.
+Log in everywhere with `admin` and the password you seeded via
+`DET695_ADMIN_PASSWORD` (see `backend/scripts/seed_demo.py`).
 
 ## The contract is the hinge
 

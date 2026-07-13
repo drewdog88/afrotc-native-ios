@@ -8,6 +8,8 @@ import { findChromium } from "./chromium.mjs";
 const executablePath = findChromium();
 
 const BASE = process.env.APP_URL ?? "http://localhost:5173";
+const PASSWORD = process.env.DET695_DEMO_PASSWORD;
+if (!PASSWORD) throw new Error("Set DET695_DEMO_PASSWORD to the demo admin password.");
 const OUT = "shots";
 mkdirSync(OUT, { recursive: true });
 
@@ -24,7 +26,7 @@ await page.screenshot({ path: `${OUT}/01-login.png` });
 
 // Sign in
 await page.fill("#username", "admin");
-await page.fill("#password", "***REMOVED-CREDENTIAL***");
+await page.fill("#password", PASSWORD);
 await page.click('button[type="submit"]');
 await page.waitForURL("**/dashboard", { timeout: 8000 });
 await page.waitForTimeout(1200); // let queries settle + funnel animate

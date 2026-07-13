@@ -24,7 +24,7 @@ flowchart TD
     SESSION -->|"No"| LOGIN["🔐 Login screen<br>Det 695 crest"]
     SESSION -->|"Yes"| SHELL
 
-    LOGIN -->|"admin / ***REMOVED-CREDENTIAL***"| AUTH["POST /auth/login"]
+    LOGIN -->|"admin / (seeded password)"| AUTH["POST /auth/login"]
     AUTH -->|"200 → store in Keychain"| SHELL["📲 Tabbed shell"]
     AUTH -->|"401"| LOGIN
 
@@ -103,7 +103,8 @@ By default the app calls `http://localhost:8099/api/v1`, which the iOS Simulator
 cd ../backend && uv run uvicorn app.main:app --port 8099
 ```
 
-Log in with the demo admin: `admin` / `***REMOVED-CREDENTIAL***`.
+Log in with the demo admin `admin` and the password you seeded via
+`DET695_ADMIN_PASSWORD` (see `backend/scripts/seed_demo.py`).
 
 To target a different backend (a device on your LAN, or the deployed URL), set the `DET695_API_BASE` environment variable in the Run scheme, e.g. `http://192.168.1.20:8099/api/v1`. `Info.plist` allows insecure `localhost` HTTP for local dev only; a deployed backend must be HTTPS.
 

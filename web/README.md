@@ -30,7 +30,8 @@ npm run dev        # Vite dev server → http://localhost:5173
 
 Run the backend alongside it (`cd ../backend && uv run uvicorn app.main:app
 --port 8000`). The API base defaults to `/api/v1`; override with the
-`VITE_API_BASE` env var. Log in with the demo admin `admin` / `***REMOVED-CREDENTIAL***`.
+`VITE_API_BASE` env var. Log in with the demo admin `admin` and the password you
+seeded via `DET695_ADMIN_PASSWORD` (see `backend/scripts/seed_demo.py`).
 
 ```bash
 npm run build      # tsc -b && vite build → dist/

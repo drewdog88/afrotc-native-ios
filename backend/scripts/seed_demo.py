@@ -21,6 +21,7 @@ re-running gives a clean, deterministic dataset. Writes ONLY to the local dev DB
 """
 from __future__ import annotations
 
+import os
 import sys
 from datetime import date, time, timedelta
 from pathlib import Path
@@ -46,8 +47,10 @@ from app.models.enums import (  # noqa: E402
     SchoolType,
 )
 
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "***REMOVED-CREDENTIAL***"  # prototype-only credential
+ADMIN_USERNAME = os.environ.get("DET695_ADMIN_USERNAME", "admin")
+# Prototype credential — set DET695_ADMIN_PASSWORD to seed a real one. The default
+# below is a placeholder only; the deployed backend must use a rotated secret.
+ADMIN_PASSWORD = os.environ.get("DET695_ADMIN_PASSWORD", "ChangeMe-Dev!1")
 
 # ---------------------------------------------------------------------------
 # REAL contacts — the detachment's actual recruiting relationships, read from the

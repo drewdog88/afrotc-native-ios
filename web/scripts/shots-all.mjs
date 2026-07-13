@@ -9,6 +9,8 @@ import { findChromium } from "./chromium.mjs";
 const executablePath = findChromium();
 
 const BASE = process.env.APP_URL ?? "http://127.0.0.1:5173";
+const PASSWORD = process.env.DET695_DEMO_PASSWORD;
+if (!PASSWORD) throw new Error("Set DET695_DEMO_PASSWORD to the demo admin password.");
 const OUT = "shots";
 mkdirSync(OUT, { recursive: true });
 
@@ -35,7 +37,7 @@ page.on("pageerror", (e) => bucket.push(String(e)));
 // Sign in first.
 await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
 await page.fill("#username", "admin");
-await page.fill("#password", "***REMOVED-CREDENTIAL***");
+await page.fill("#password", PASSWORD);
 await page.click('button[type="submit"]');
 await page.waitForURL("**/dashboard", { timeout: 8000 });
 await page.waitForTimeout(800);

@@ -11,13 +11,15 @@ from app.core.security import encrypt_secret
 from app.models import User
 from app.models.enums import UserRole
 
+from .conftest import ADMIN_PASSWORD, ADMIN_USERNAME
+
 
 def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
 def test_login_success_returns_token_pair(client: TestClient, admin_user: User, login) -> None:
-    resp = login(client, "admin", "***REMOVED-CREDENTIAL***")
+    resp = login(client, ADMIN_USERNAME, ADMIN_PASSWORD)
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["access_token"] and body["refresh_token"]
@@ -27,7 +29,7 @@ def test_login_success_returns_token_pair(client: TestClient, admin_user: User, 
 
 
 def test_login_by_email_is_accepted(client: TestClient, admin_user: User, login) -> None:
-    resp = login(client, "admin@det695.local", "***REMOVED-CREDENTIAL***")
+    resp = login(client, "admin@det695.local", ADMIN_PASSWORD)
     assert resp.status_code == 200, resp.text
 
 
@@ -56,7 +58,7 @@ def test_me_returns_current_user(client: TestClient, auth_headers: dict[str, str
 def test_refresh_yields_a_usable_access_token(
     client: TestClient, admin_user: User, login
 ) -> None:
-    tokens = login(client, "admin", "***REMOVED-CREDENTIAL***").json()
+    tokens = login(client, ADMIN_USERNAME, ADMIN_PASSWORD).json()
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert resp.status_code == 200
     new_access = resp.json()["access_token"]
@@ -67,7 +69,7 @@ def test_refresh_rejects_an_access_token(
     client: TestClient, admin_user: User, login
 ) -> None:
     # Passing an access token where a refresh token is expected must fail.
-    access = login(client, "admin", "***REMOVED-CREDENTIAL***").json()["access_token"]
+    access = login(client, ADMIN_USERNAME, ADMIN_PASSWORD).json()["access_token"]
     resp = client.post("/api/v1/auth/refresh", json={"refresh_token": access})
     assert resp.status_code == 401
 

@@ -88,8 +88,10 @@ def _override_get_db() -> Iterator[Session]:
 app.dependency_overrides[get_db] = _override_get_db
 
 
+# Test-harness credentials only: each test creates this admin user and logs in as
+# it. Not a real secret — never matches any deployed backend.
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "***REMOVED-CREDENTIAL***"
+ADMIN_PASSWORD = "test-admin-pw"
 
 
 @pytest.fixture(autouse=True)

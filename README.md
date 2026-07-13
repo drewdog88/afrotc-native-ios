@@ -70,7 +70,10 @@ cd web && npm install && npm run dev     # http://localhost:5173
 cd ios && xcodegen generate && open Det695.xcodeproj   # ⌘R
 ```
 
-Log in with the demo admin `admin` / `***REMOVED-CREDENTIAL***`.
+Log in with the demo admin `admin`. The password is whatever you set via
+`DET695_ADMIN_PASSWORD` when running `scripts/seed_demo.py` (defaults to a
+throwaway dev placeholder if unset). Never commit a real password — the deployed
+backend must use its own rotated secret.
 
 ## Documentation
 

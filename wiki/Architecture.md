@@ -82,7 +82,7 @@ There is exactly one Neon Postgres instance behind everything. An edit made in t
 2. The client stores the token — **Keychain** on iOS, browser storage on web — and sends `Authorization: Bearer <token>` on every request.
 3. On a 401 the client transparently refreshes and retries, so the user isn't bounced to the login screen mid-session.
 
-Demo admin: `admin` / `***REMOVED-CREDENTIAL***`. **See the full sequence diagrams on [How It Works](How-It-Works).**
+Demo admin: `admin` (password set via `DET695_ADMIN_PASSWORD` at seed time). **See the full sequence diagrams on [How It Works](How-It-Works).**
 
 ## Repository layout
 

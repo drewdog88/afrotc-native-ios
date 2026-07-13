@@ -56,7 +56,7 @@ What's covered:
 
 - **Restore drill (CI)** — the strongest end-to-end check in the repo. Every Monday `.github/workflows/restore-drill.yml` restores the latest backup into a throwaway Postgres 17 container and asserts all 11 tables exist with sane row counts (and that `users` isn't empty). See [Backups & Recovery](Backups-and-Recovery).
 - **Web screenshot pipeline** — `web/scripts/*.mjs` (Playwright) drive the app and capture `web/shots/*.png` across pages (dashboard, pipeline, map, etc.), used for visual sanity checks — and for the galleries in this wiki.
-- **iOS smoke affordance** — a DEBUG-only `DET695_AUTOLOGIN` env var lets the app auto-login (`admin`/`***REMOVED-CREDENTIAL***`) for quick simulator smoke runs from the CLI.
+- **iOS smoke affordance** — a DEBUG-only `DET695_AUTOLOGIN` env var lets the app auto-login for quick simulator smoke runs from the CLI. Supply the credentials via `DET695_AUTOLOGIN_USER` / `DET695_AUTOLOGIN_PASS` (no password is baked into the app).
 
 ## Still open
 

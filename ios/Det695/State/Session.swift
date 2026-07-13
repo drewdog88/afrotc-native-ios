@@ -25,9 +25,9 @@ final class Session: ObservableObject {
         // authenticated screens can be smoke-tested from the CLI (the Simulator
         // has no scriptable text entry). Inert unless the env var is set.
         let env = ProcessInfo.processInfo.environment
-        if env["DET695_AUTOLOGIN"] == "1" {
+        if env["DET695_AUTOLOGIN"] == "1", let pass = env["DET695_AUTOLOGIN_PASS"] {
             await login(username: env["DET695_AUTOLOGIN_USER"] ?? "admin",
-                        password: env["DET695_AUTOLOGIN_PASS"] ?? "***REMOVED-CREDENTIAL***",
+                        password: pass,
                         totpCode: nil)
             return
         }
