@@ -110,7 +110,7 @@ struct MainTabView: View {
 /// NavigationStack. Each destination declares its own typed routes for detail.
 struct MoreView: View {
     enum Destination: String, CaseIterable, Hashable {
-        case contacts, events, followups, materials
+        case contacts, events, followups, materials, profile
 
         var title: String {
             switch self {
@@ -118,6 +118,7 @@ struct MoreView: View {
             case .events: "Events"
             case .followups: "Follow-ups"
             case .materials: "Materials"
+            case .profile: "Profile & Security"
             }
         }
         var icon: String {
@@ -126,6 +127,7 @@ struct MoreView: View {
             case .events: "calendar"
             case .followups: "checklist"
             case .materials: "folder"
+            case .profile: "person.crop.circle"
             }
         }
     }
@@ -148,6 +150,7 @@ struct MoreView: View {
                 case .events: EventsView()
                 case .followups: FollowUpsView()
                 case .materials: MaterialsView()
+                case .profile: ProfileView()
                 }
             }
         }
