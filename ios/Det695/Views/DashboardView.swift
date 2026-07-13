@@ -149,13 +149,14 @@ private struct StatTile: View {
     var accent: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .center, spacing: 6) {
             // Reserve two lines so single- and double-line labels leave the value
             // on the same baseline across a row.
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
                 .tracking(1)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
                 .lineLimit(2, reservesSpace: true)
             Text(value)
                 .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -164,10 +165,11 @@ private struct StatTile: View {
                 Text(note)
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
                     .lineLimit(1)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(16)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
     }
