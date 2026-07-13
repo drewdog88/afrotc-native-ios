@@ -8,6 +8,7 @@ struct ContactRoute: Hashable { let id: Int }
 /// web Contacts page. Rows push a read-only detail.
 struct ContactsView: View {
     @State private var contacts: [ContactOut] = []
+    @State private var total = 0
     @State private var search = ""
     /// nil = all, true = active only, false = inactive only.
     @State private var activeFilter: Bool?
@@ -17,6 +18,11 @@ struct ContactsView: View {
 
     var body: some View {
         List {
+            Section {
+                ContactStatusChips(activeFilter: $activeFilter)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                    .listRowSeparator(.hidden)
+            }
             if let error {
                 Text(error).foregroundStyle(Theme.danger)
             }
@@ -24,24 +30,28 @@ struct ContactsView: View {
                 NavigationLink(value: ContactRoute(id: c.id)) { ContactRow(contact: c) }
             }
             if contacts.isEmpty && !loading && error == nil {
-                ContentUnavailableView("No contacts", systemImage: "building.columns")
+                ContentUnavailableView {
+                    Label(isFiltered ? "No matches" : "No contacts yet", systemImage: "building.columns")
+                } description: {
+                    Text(isFiltered
+                         ? "No contacts match this view."
+                         : "Add your first point of contact to get started.")
+                }
+                .listRowSeparator(.hidden)
+            }
+            if !contacts.isEmpty {
+                Text(countLabel)
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .listRowSeparator(.hidden)
             }
         }
         .listStyle(.plain)
         .overlay { if loading && contacts.isEmpty { ProgressView() } }
         .navigationTitle("Contacts")
         .navigationDestination(for: ContactRoute.self) { ContactDetailView(contactId: $0.id) }
-        .searchable(text: $search, prompt: "Search contacts")
+        .searchable(text: $search, prompt: "Search by name, school, or email")
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("All") { activeFilter = nil }
-                    Button("Active") { activeFilter = true }
-                    Button("Inactive") { activeFilter = false }
-                } label: {
-                    Label(filterLabel, systemImage: "line.3.horizontal.decrease.circle")
-                }
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showingCreate = true } label: {
                     Label("Add", systemImage: "plus")
@@ -57,19 +67,55 @@ struct ContactsView: View {
         .refreshable { await load() }
     }
 
-    private var filterLabel: String {
-        switch activeFilter { case .some(true): "Active"; case .some(false): "Inactive"; case .none: "All" }
-    }
     private var filterKey: String { "\(search)|\(activeFilter.map(String.init) ?? "")" }
+    private var isFiltered: Bool { !search.isEmpty || activeFilter != nil }
+
+    private var countLabel: String {
+        let shown = contacts.count
+        let suffix = total > shown ? " of \(total)" : ""
+        return "\(shown)\(suffix) contact\(total == 1 ? "" : "s")"
+    }
 
     private func load() async {
         loading = true
         error = nil
         defer { loading = false }
         do {
-            contacts = try await APIClient.shared.contacts(search: search, isActive: activeFilter).items
+            let page = try await APIClient.shared.contacts(search: search, isActive: activeFilter)
+            contacts = page.items
+            total = page.total
         } catch {
             self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+}
+
+/// Active-status filter chips (All / Active / Inactive), mirroring the web chip row.
+private struct ContactStatusChips: View {
+    @Binding var activeFilter: Bool?
+
+    private var options: [(label: String, value: Bool?, tint: Color)] {
+        [("All", nil, Theme.ink), ("Active", true, Theme.ok), ("Inactive", false, Theme.muted)]
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(options, id: \.label) { opt in
+                    let active = activeFilter == opt.value
+                    Button {
+                        activeFilter = (activeFilter == opt.value && opt.value != nil) ? nil : opt.value
+                    } label: {
+                        Text(opt.label)
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                            .background(active ? opt.tint : opt.tint.opacity(0.12), in: Capsule())
+                            .foregroundStyle(active ? .white : opt.tint)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
         }
     }
 }
@@ -84,7 +130,15 @@ private struct ContactRow: View {
                 .frame(width: 10, height: 10)
             VStack(alignment: .leading, spacing: 2) {
                 Text(contact.contactName).font(.body.weight(.semibold))
-                Text(contact.universityName).font(.caption).foregroundStyle(.secondary)
+                if let title = contact.contactTitle, !title.isEmpty {
+                    Text("\(title) · \(contact.universityName)")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text(contact.universityName).font(.caption).foregroundStyle(.secondary)
+                }
+                if !contact.email.isEmpty {
+                    Text(contact.email).font(.caption2).foregroundStyle(.secondary)
+                }
             }
             Spacer()
         }
@@ -121,6 +175,8 @@ struct ContactDetailView: View {
                         if let lat = c.latitude, let lon = c.longitude {
                             LinkRow(label: "Map", value: "Open in Maps",
                                     url: URL(string: "https://maps.apple.com/?q=\(lat),\(lon)"))
+                            LabeledRow("Latitude", String(format: "%.5f", lat))
+                            LabeledRow("Longitude", String(format: "%.5f", lon))
                         }
                     }
                     if let n = c.notes, !n.isEmpty {
@@ -163,12 +219,12 @@ struct ContactDetailView: View {
             }
         }
         .confirmationDialog("Delete this contact?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+            Button("Delete \(contact?.contactName ?? "contact")", role: .destructive) {
                 Task { await deleteContact() }
             }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("This action cannot be undone.")
+            Text("This permanently removes \(contact?.contactName ?? "this contact"). This can't be undone.")
         }
         .task { await load() }
     }

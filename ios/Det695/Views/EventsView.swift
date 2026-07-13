@@ -4,41 +4,48 @@ import SwiftUI
 /// routes so several screens can share one NavigationStack in the More tab).
 struct EventRoute: Hashable { let id: Int }
 
-/// Outreach events as a chronological list split into Upcoming / Past, with a
-/// status filter, mirroring the web Events page (list mode). Rows push a detail.
+/// Outreach events, mirroring the web Events page: flip between a month calendar
+/// (event pills on each day, today highlighted, prev/next/Today nav) and a
+/// chronological Upcoming / Past list, scoped by a status filter. Rows and pills
+/// both push a detail.
 struct EventsView: View {
+    private enum ViewMode: String, CaseIterable {
+        case calendar, list
+        var label: String { rawValue.capitalized }
+    }
+
     @State private var events: [EventOut] = []
     @State private var status: EventStatus?
     @State private var error: String?
     @State private var loading = false
     @State private var showingCreateSheet = false
+    @State private var mode: ViewMode = .calendar
 
     var body: some View {
-        List {
+        VStack(spacing: 0) {
+            Picker("View", selection: $mode) {
+                ForEach(ViewMode.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .padding([.horizontal, .top])
+
             if let error {
                 Text(error).foregroundStyle(Theme.danger)
+                    .font(.footnote)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
             }
-            if !upcoming.isEmpty {
-                Section("Upcoming") {
-                    ForEach(upcoming) { e in
-                        NavigationLink(value: EventRoute(id: e.id)) { EventRow(event: e) }
-                    }
-                }
-            }
-            if !past.isEmpty {
-                Section("Past") {
-                    ForEach(past) { e in
-                        NavigationLink(value: EventRoute(id: e.id)) { EventRow(event: e) }
-                    }
-                }
-            }
-            if events.isEmpty && !loading && error == nil {
-                ContentUnavailableView("No events", systemImage: "calendar")
+
+            switch mode {
+            case .calendar:
+                MonthCalendar(events: events)
+            case .list:
+                eventList
             }
         }
-        .listStyle(.insetGrouped)
         .overlay { if loading && events.isEmpty { ProgressView() } }
         .navigationTitle("Events")
+        .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: EventRoute.self) { EventDetailView(eventId: $0.id) }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -69,6 +76,34 @@ struct EventsView: View {
         .refreshable { await load() }
     }
 
+    /// The chronological list mode: Upcoming / Past sections.
+    private var eventList: some View {
+        List {
+            if !upcoming.isEmpty {
+                Section("Upcoming") {
+                    ForEach(upcoming) { e in
+                        NavigationLink(value: EventRoute(id: e.id)) { EventRow(event: e) }
+                    }
+                }
+            }
+            if !past.isEmpty {
+                Section("Past") {
+                    ForEach(past) { e in
+                        NavigationLink(value: EventRoute(id: e.id)) { EventRow(event: e) }
+                    }
+                }
+            }
+            if events.isEmpty && !loading && error == nil {
+                ContentUnavailableView(status == nil ? "No events" : "No matches",
+                                       systemImage: "calendar",
+                                       description: Text(status == nil
+                                            ? "Add your first event to start the calendar."
+                                            : "No events match this status."))
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
     /// Today at 00:00, for the upcoming/past split.
     private var startOfToday: Date { Calendar.current.startOfDay(for: .now) }
 
@@ -93,28 +128,235 @@ struct EventsView: View {
     }
 }
 
+// MARK: - Calendar
+
+/// A month grid mirroring the web calendar: a 6-week (42-cell) grid starting on
+/// the Sunday on/before the 1st, with each day showing up to three event pills
+/// (color-coded by status) and today highlighted. Prev/next/Today step the month.
+private struct MonthCalendar: View {
+    let events: [EventOut]
+
+    /// The first day of the month currently shown.
+    @State private var monthStart: Date = Calendar.current.dateInterval(of: .month, for: .now)?.start
+        ?? Calendar.current.startOfDay(for: .now)
+
+    private let calendar = Calendar.current
+    private let weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+    /// Events bucketed by their "yyyy-MM-dd" day, each list sorted by start time.
+    private var byDay: [String: [EventOut]] {
+        var map: [String: [EventOut]] = [:]
+        for e in events {
+            map[String(e.eventDate.prefix(10)), default: []].append(e)
+        }
+        for key in map.keys {
+            map[key]?.sort { ($0.startTime ?? "") < ($1.startTime ?? "") }
+        }
+        return map
+    }
+
+    /// The 42 day-cells: the Sunday on/before the 1st, then 41 consecutive days.
+    private var cells: [Date] {
+        let weekday = calendar.component(.weekday, from: monthStart) // 1 = Sunday
+        let start = calendar.date(byAdding: .day, value: -(weekday - 1), to: monthStart) ?? monthStart
+        return (0..<42).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            weekdayRow
+            grid
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal)
+    }
+
+    private var header: some View {
+        HStack {
+            Text(monthTitle).font(.title3.weight(.semibold))
+            Spacer()
+            Button("Today") { step(toCurrentMonth: true) }
+                .font(.subheadline)
+            Button { step(by: -1) } label: { Image(systemName: "chevron.left") }
+                .accessibilityLabel("Previous month")
+            Button { step(by: 1) } label: { Image(systemName: "chevron.right") }
+                .accessibilityLabel("Next month")
+        }
+        .padding(.vertical, 12)
+    }
+
+    private var weekdayRow: some View {
+        HStack(spacing: 2) {
+            ForEach(weekdays, id: \.self) { w in
+                Text(w)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.bottom, 4)
+    }
+
+    private var grid: some View {
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
+        return LazyVGrid(columns: columns, spacing: 2) {
+            ForEach(cells, id: \.self) { day in
+                DayCell(day: day,
+                        inMonth: calendar.isDate(day, equalTo: monthStart, toGranularity: .month),
+                        isToday: calendar.isDateInToday(day),
+                        events: byDay[key(day)] ?? [])
+            }
+        }
+    }
+
+    private var monthTitle: String {
+        monthStart.formatted(.dateTime.month(.wide).year())
+    }
+
+    private func key(_ day: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: day)
+    }
+
+    private func step(by months: Int) {
+        if let d = calendar.date(byAdding: .month, value: months, to: monthStart) { monthStart = d }
+    }
+
+    private func step(toCurrentMonth: Bool) {
+        monthStart = calendar.dateInterval(of: .month, for: .now)?.start
+            ?? calendar.startOfDay(for: .now)
+    }
+}
+
+/// A single day in the month grid: the date number (highlighted when today) and
+/// up to three event pills, with a "+N more" overflow marker.
+private struct DayCell: View {
+    let day: Date
+    let inMonth: Bool
+    let isToday: Bool
+    let events: [EventOut]
+
+    private var dayNumber: String { day.formatted(.dateTime.day()) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(dayNumber)
+                .font(.caption2)
+                .fontWeight(isToday ? .bold : .regular)
+                .foregroundStyle(numberColor)
+                .frame(width: 20, height: 20)
+                .background { if isToday { Circle().fill(Theme.accent) } }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            ForEach(events.prefix(3)) { e in
+                NavigationLink(value: EventRoute(id: e.id)) { pill(e) }
+                    .buttonStyle(.plain)
+            }
+            if events.count > 3 {
+                Text("+\(events.count - 3)")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(3)
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color(.secondarySystemBackground)))
+        .opacity(inMonth ? 1 : 0.4)
+    }
+
+    private var numberColor: Color {
+        if isToday { return .white }
+        return inMonth ? .primary : .secondary
+    }
+
+    private func pill(_ e: EventOut) -> some View {
+        HStack(spacing: 2) {
+            Circle()
+                .fill(Theme.eventStatusColor(e.statusValue))
+                .frame(width: 5, height: 5)
+            Text(e.title)
+                .font(.system(size: 9))
+                .lineLimit(1)
+                .foregroundStyle(.primary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 3)
+        .padding(.vertical, 1)
+        .background(RoundedRectangle(cornerRadius: 3).fill(Theme.eventStatusColor(e.statusValue).opacity(0.15)))
+    }
+}
+
 private struct EventRow: View {
     let event: EventOut
 
     var body: some View {
         HStack(spacing: 12) {
-            Circle()
-                .fill(Theme.eventStatusColor(event.statusValue))
-                .frame(width: 10, height: 10)
+            EventDateChip(dateString: event.eventDate, tint: Theme.eventStatusColor(event.statusValue))
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title).font(.body.weight(.semibold))
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            EventStatusPill(status: event.statusValue)
         }
         .padding(.vertical, 4)
     }
 
     private var subtitle: String {
-        var parts = [DateDisplay.mediumDate(event.eventDate)]
+        var parts: [String] = []
         if let t = DateDisplay.time(event.startTime) { parts.append(t) }
         if let loc = event.location, !loc.isEmpty { parts.append(loc) }
+        if parts.isEmpty { parts.append(event.eventType) }
         return parts.joined(separator: " · ")
+    }
+}
+
+/// A month/day date box mirroring the web `dateChip` (tinted month abbreviation
+/// stacked over a bold day number).
+struct EventDateChip: View {
+    let dateString: String
+    let tint: Color
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text(month).font(.caption2.weight(.bold)).foregroundStyle(tint)
+            Text(day).font(.headline).foregroundStyle(Theme.ink)
+        }
+        .frame(width: 44, height: 44)
+        .background(RoundedRectangle(cornerRadius: 8).fill(tint.opacity(0.12)))
+    }
+
+    private var parsed: Date? { DateDisplay.parseDay(dateString) }
+    private var month: String {
+        guard let d = parsed else { return "—" }
+        return Self.monthFormatter.string(from: d).uppercased()
+    }
+    private var day: String {
+        guard let d = parsed else { return "?" }
+        return Self.dayFormatter.string(from: d)
+    }
+
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "MMM"; return f
+    }()
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "d"; return f
+    }()
+}
+
+/// A tinted status capsule for event rows, mirroring the web status tag.
+struct EventStatusPill: View {
+    let status: EventStatus
+    var body: some View {
+        Text(status.label)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Theme.eventStatusColor(status).opacity(0.18), in: Capsule())
+            .foregroundStyle(Theme.eventStatusColor(status))
     }
 }
 
@@ -243,6 +485,7 @@ private struct EventFormSheet: View {
     @State private var notes = ""
     @State private var status = EventStatus.scheduled
     @State private var saving = false
+    @State private var saved = false
     @State private var error: String?
 
     var body: some View {
@@ -251,6 +494,12 @@ private struct EventFormSheet: View {
                 if let error {
                     Section {
                         Text(error).foregroundStyle(Theme.danger)
+                    }
+                }
+                if saved {
+                    Section {
+                        Label("Saved", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(Theme.ok)
                     }
                 }
 
@@ -394,7 +643,10 @@ private struct EventFormSheet: View {
                 )
                 _ = try await APIClient.shared.updateEvent(id: event.id, input)
             }
+            saved = true
             await onSave()
+            // Brief success flash before the sheet closes.
+            try? await Task.sleep(nanoseconds: 500_000_000)
             dismiss()
         } catch {
             self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription

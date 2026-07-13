@@ -23,6 +23,19 @@ enum RecruitStage: String, CaseIterable, Identifiable {
         }
     }
 
+    /// One-line description of what this altitude band means, mirroring the web
+    /// stage blurbs.
+    var blurb: String {
+        switch self {
+        case .lead: return "On the radar — not yet contacted"
+        case .contacted: return "First conversation made"
+        case .applied: return "Application in motion"
+        case .enrolled: return "Enrolled in the program"
+        case .commissioned: return "Reached the apex"
+        case .declined: return "Left the pipeline"
+        }
+    }
+
     /// Ordering used by the funnel display (apex first).
     var funnelOrder: Int {
         switch self {

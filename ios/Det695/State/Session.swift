@@ -59,6 +59,12 @@ final class Session: ObservableObject {
         }
     }
 
+    /// Replace the cached user after a self-service profile edit so any screen
+    /// bound to `session.user` reflects the change immediately.
+    func applyUpdatedUser(_ updated: UserOut) {
+        user = updated
+    }
+
     func logout() async {
         await APIClient.shared.logout()
         user = nil
