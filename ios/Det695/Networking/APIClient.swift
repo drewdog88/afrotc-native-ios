@@ -251,6 +251,35 @@ actor APIClient {
         _ = try await requestData("/materials/documents/\(id)", method: "DELETE", bodyData: nil, authed: true)
     }
 
+    // MARK: - Admin
+
+    func adminUsers(search: String? = nil, skip: Int = 0, limit: Int = 200) async throws -> Page<UserOut> {
+        var q = [URLQueryItem(name: "skip", value: String(skip)),
+                 URLQueryItem(name: "limit", value: String(limit))]
+        if let search, !search.isEmpty { q.append(URLQueryItem(name: "search", value: search)) }
+        return try await requestJSON("/admin/users", method: "GET", bodyData: nil, authed: true, query: q)
+    }
+
+    @discardableResult
+    func createAdminUser(_ body: AdminUserCreate) async throws -> UserOut {
+        try await requestJSON("/admin/users", method: "POST", bodyData: try encoder.encode(body), authed: true)
+    }
+
+    @discardableResult
+    func updateAdminUser(id: Int, _ body: AdminUserUpdate) async throws -> UserOut {
+        try await requestJSON("/admin/users/\(id)", method: "PATCH", bodyData: try encoder.encode(body), authed: true)
+    }
+
+    func deleteAdminUser(id: Int) async throws {
+        _ = try await requestData("/admin/users/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
+    func adminActivity(skip: Int = 0, limit: Int = 25) async throws -> Page<ActivityLogOut> {
+        let q = [URLQueryItem(name: "skip", value: String(skip)),
+                 URLQueryItem(name: "limit", value: String(limit))]
+        return try await requestJSON("/admin/activity", method: "GET", bodyData: nil, authed: true, query: q)
+    }
+
     // MARK: - Mutations
 
     // Recruits
