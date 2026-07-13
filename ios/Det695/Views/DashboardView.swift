@@ -53,7 +53,8 @@ struct DashboardView: View {
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     Button { router.openRecruits() } label: {
-                        StatTile(label: "Recruits in pipeline", value: "\(s.totalRecruits)")
+                        StatTile(label: "Recruits in pipeline", value: "\(s.totalRecruits)",
+                                 note: "across all stages")
                     }
                     .buttonStyle(.plain)
 
@@ -64,7 +65,8 @@ struct DashboardView: View {
                     .buttonStyle(.plain)
 
                     Button { router.openCadets(status: "active") } label: {
-                        StatTile(label: "Active cadets", value: "\(s.totalCadets)")
+                        StatTile(label: "Active cadets", value: "\(s.totalCadets)",
+                                 note: "on the roster")
                     }
                     .buttonStyle(.plain)
 
@@ -85,6 +87,7 @@ struct DashboardView: View {
                 }
             }
             .padding(16)
+            .padding(.bottom, 24) // clear the floating tab bar
         }
         .background(Color(.systemGroupedBackground))
     }
@@ -147,10 +150,13 @@ private struct StatTile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            // Reserve two lines so single- and double-line labels leave the value
+            // on the same baseline across a row.
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
                 .tracking(1)
                 .foregroundStyle(.secondary)
+                .lineLimit(2, reservesSpace: true)
             Text(value)
                 .font(.system(size: 34, weight: .bold, design: .rounded))
                 .foregroundStyle(accent ? Theme.accent : Theme.ink)
@@ -158,6 +164,7 @@ private struct StatTile: View {
                 Text(note)
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
