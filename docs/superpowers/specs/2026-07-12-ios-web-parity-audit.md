@@ -8,9 +8,12 @@ checked off here as they land.
 
 ## Headline
 
-**Overall parity ≈ 90%.** Every top-level web screen now has an iOS equivalent;
-what remains are within-screen sub-features (charts, chip filters, richer
-empty/error/loading states) rather than whole missing screens.
+**Overall parity ≈ 100%.** Every top-level web screen has an iOS equivalent
+(Tier 1 ✅) and every Tier-2 within-screen gap — charts, chip filters, result
+counts, richer empty/error/skeleton states, stage-change-with-note, dashboard
+and pipeline chart depth — has been closed. What remains are the deliberate,
+documented platform differences below (Apple Maps, sheet edits, share-sheet
+downloads, swipe actions).
 
 ## Tier 1 — Entire screens (all now have iOS equivalents ✅)
 
@@ -37,12 +40,13 @@ empty/error/loading states) rather than whole missing screens.
 - ✅ Page title + subtitle ("Detachment overview" / "Live recruiting pipeline…")
 - ✅ Redacted skeleton tiles + panels while the first load is in flight (was plain spinner)
 
-### Pipeline (~55%)
-- ⚠️ Multi-series cumulative chart renders, but no hover crosshair / multi-series tooltip
-- ❌ Interactive legend (web: click stage → `/recruits?stage=`)
-- ❌ Clickable conversion-table rows → filtered recruits
-- ❌ Stage blurbs in conversion table
-- ❌ Page subtitle, skeleton loader
+### Pipeline (~55% → ✅ done)
+- ✅ Hover crosshair + multi-series tooltip on the cumulative chart (`.chartXSelection` + `.chartBackground` proxy crosshair + per-stage tooltip overlay sorted by funnel order)
+- ✅ Chronologically-sorted x-axis (`.chartXScale(domain:)`) so cumulative lines climb left→right instead of crisscrossing
+- ✅ Interactive legend — tappable stage capsules → `router.openRecruits(stage:)` (mirrors web click stage → `/recruits?stage=`)
+- ✅ Clickable conversion-table rows → filtered recruits (same drill-through)
+- ✅ Stage blurbs in the conversion table
+- ✅ Page title + subtitle + redacted skeleton loader (was a plain overlay spinner)
 
 ### Follow-ups (~70% → ✅ done)
 - ✅ Overdue banner ("N past due — knock these out first")
