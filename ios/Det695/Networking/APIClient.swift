@@ -208,6 +208,49 @@ actor APIClient {
                               bodyData: nil, authed: true)
     }
 
+    // Material links
+    @discardableResult
+    func createLink(_ body: LinkCreateInput) async throws -> LinkOut {
+        try await requestJSON("/materials/links", method: "POST",
+                              bodyData: try encoder.encode(body), authed: true)
+    }
+    @discardableResult
+    func updateLink(id: Int, _ body: LinkUpdateInput) async throws -> LinkOut {
+        try await requestJSON("/materials/links/\(id)", method: "PATCH",
+                              bodyData: try encoder.encode(body), authed: true)
+    }
+    func deleteLink(id: Int) async throws {
+        _ = try await requestData("/materials/links/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
+    // Documents
+    /// Upload a document as multipart/form-data. Title/description/category ride
+    /// as query params (the backend reads them as query args, not form fields).
+    @discardableResult
+    func uploadDocument(fileData: Data, filename: String, mimeType: String,
+                        title: String? = nil, description: String? = nil,
+                        category: String? = nil) async throws -> DocumentOut {
+        var q: [URLQueryItem] = []
+        if let title, !title.isEmpty { q.append(URLQueryItem(name: "title", value: title)) }
+        if let description, !description.isEmpty { q.append(URLQueryItem(name: "description", value: description)) }
+        if let category, !category.isEmpty { q.append(URLQueryItem(name: "category", value: category)) }
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body = Data()
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n")
+        body.append("Content-Type: \(mimeType)\r\n\r\n")
+        body.append(fileData)
+        body.append("\r\n--\(boundary)--\r\n")
+
+        return try await requestJSON("/materials/documents", method: "POST", bodyData: body,
+                                     authed: true, query: q,
+                                     contentType: "multipart/form-data; boundary=\(boundary)")
+    }
+    func deleteDocument(id: Int) async throws {
+        _ = try await requestData("/materials/documents/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
     // MARK: - Mutations
 
     // Recruits
@@ -284,8 +327,10 @@ actor APIClient {
     // MARK: - Core request
 
     private func requestJSON<T: Decodable>(_ path: String, method: String, bodyData: Data?,
-                                           authed: Bool, query: [URLQueryItem] = []) async throws -> T {
-        let data = try await requestData(path, method: method, bodyData: bodyData, authed: authed, query: query)
+                                           authed: Bool, query: [URLQueryItem] = [],
+                                           contentType: String = "application/json") async throws -> T {
+        let data = try await requestData(path, method: method, bodyData: bodyData, authed: authed,
+                                         query: query, contentType: contentType)
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
@@ -296,6 +341,7 @@ actor APIClient {
     @discardableResult
     private func requestData(_ path: String, method: String, bodyData: Data?,
                              authed: Bool, query: [URLQueryItem] = [],
+                             contentType: String = "application/json",
                              retry: Bool = true) async throws -> Data {
         guard var comps = URLComponents(string: base.absoluteString + path) else {
             throw APIError.invalidResponse
@@ -307,7 +353,7 @@ actor APIClient {
         req.httpMethod = method
         if let bodyData {
             req.httpBody = bodyData
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
         if authed, let token = accessToken {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -324,7 +370,8 @@ actor APIClient {
 
         if http.statusCode == 401 && authed && retry, await refreshTokens() {
             return try await requestData(path, method: method, bodyData: bodyData,
-                                         authed: authed, query: query, retry: false)
+                                         authed: authed, query: query,
+                                         contentType: contentType, retry: false)
         }
 
         guard (200..<300).contains(http.statusCode) else {
@@ -357,5 +404,12 @@ actor APIClient {
         if let arr = obj["detail"] as? [[String: Any]], let first = arr.first,
            let msg = first["msg"] as? String { return msg }
         return ""
+    }
+}
+
+private extension Data {
+    /// Append a UTF-8 string — used to assemble multipart/form-data bodies.
+    mutating func append(_ string: String) {
+        if let d = string.data(using: .utf8) { append(d) }
     }
 }

@@ -75,9 +75,10 @@ charts, calendar, item counts, geocoding, richer empty/error/loading states).
 - ❌ **Calendar view** (month grid, event pills, today highlight, prev/next/Today) + list/calendar toggle — biggest single gap here
 - ❌ Save-success indicator; styled date chip in rows; skeletons
 
-### Materials (~38% — weakest)
-- ❌ **Read-only on iOS.** No document upload; no link create/edit/delete; no document delete
-- ❌ Category field; description display; item-count footer; URL column
+### Materials (~38% → ✅ done)
+- ✅ **Full CRUD.** Document upload (`.fileImporter` → multipart) + swipe-delete; link create/edit/delete via sheet + swipe actions
+- ✅ Write-gated to non-viewer roles (matches web `canWrite`); category field; description display; item-count footer
+- ✅ Distinct "nothing yet" vs "no matches" empty states
 - ✅ Download works (→ iOS share sheet)
 
 ## Platform differences that are acceptable (not gaps)
