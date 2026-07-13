@@ -29,12 +29,13 @@ empty/error/loading states) rather than whole missing screens.
 
 ## Tier 2 — Screens that exist but lack sub-features
 
-### Dashboard (~60%)
-- ❌ "New recruits" trend area chart (SVG w/ gradient, tooltip)
-- ❌ Commission-rate % note on Commissioned tile
-- ❌ "needs attention" note on Open follow-ups tile
-- ❌ Per-stage conversion % in funnel + stage blurbs
-- ❌ Skeleton loading states (uses plain spinner)
+### Dashboard (~60% → ✅ done)
+- ✅ "New recruits" trend area chart — Swift `Charts` AreaMark+LineMark w/ accent gradient, week-bucketed x axis, empty-state copy
+- ✅ Commission-rate % note ("N% of pipeline") on Commissioned tile
+- ✅ "needs attention" / "all clear" note on Open follow-ups tile
+- ✅ Per-stage conversion % (vs stage below) + stage blurbs in the Ascent funnel
+- ✅ Page title + subtitle ("Detachment overview" / "Live recruiting pipeline…")
+- ✅ Redacted skeleton tiles + panels while the first load is in flight (was plain spinner)
 
 ### Pipeline (~55%)
 - ⚠️ Multi-series cumulative chart renders, but no hover crosshair / multi-series tooltip
