@@ -43,37 +43,40 @@ empty/error/loading states) rather than whole missing screens.
 - ❌ Stage blurbs in conversion table
 - ❌ Page subtitle, skeleton loader
 
-### Follow-ups (~70%)
-- ❌ Overdue banner ("N past due — knock these out first")
-- ❌ Always-render Overdue/Today groups w/ "caught up" placeholder
-- ❌ Relative due labels ("in 3 days", "2 days overdue")
-- ❌ Default due = today 5pm (iOS uses now)
-- ❌ Inline empty-state "New follow-up" button, skeletons
+### Follow-ups (~70% → ✅ done)
+- ✅ Overdue banner ("N past due — knock these out first")
+- ✅ Overdue/Today groups always render with "caught up" / "nothing due today" placeholder; Upcoming/Done hidden when empty
+- ✅ Relative due labels ("today"/"tomorrow"/"N days overdue"/"in N days")
+- ✅ Default due = today 5pm (was now)
+- ✅ Inline empty-state "New follow-up" button + richer copy
 - ✅ iOS *adds* swipe actions + delete confirmation (web lacks these)
 
-### Recruits (~58%)
-- ❌ Chip-style stage filter (iOS uses a Menu)
-- ❌ School-type column; result-count footer ("X of Y")
-- ❌ Starting-stage picker on create (iOS hardcodes `lead`)
-- ❌ Stage change **with note** + stage-change error display; disable current stage
-- ❌ Distinct "no recruits yet" vs "no matches" empty states
-- ❌ Delete confirmation naming the recruit
+### Recruits (~58% → ✅ done)
+- ✅ Chip-style stage filter row (All + each stage, tinted via Theme.stageColor) replacing the Menu
+- ✅ School-type shown in row ("current_school · HS/College"); result-count footer ("N of M recruits")
+- ✅ Starting-stage picker on create (was hardcoded `lead`)
+- ✅ Stage change **with note** via `StageChangeSheet` (current stage disabled) + stage-change error display
+- ✅ Distinct "No matches" vs "No recruits yet" empty states
+- ✅ Delete confirmation naming the recruit
+- ✅ "Import from file" added to the Add menu (write-gated) → `ImportRecruitsView`
 - ⚠️ Note: iOS has GPA/interests on create that web lacks — reconcile direction
 
-### Cadets (~70%)
-- ❌ Chip-style status filter; rank/major/grad-year columns; result-count footer
-- ❌ Delete confirmation naming the cadet; richer empty states
-- ⚠️ Status shown as colored text vs web StatusPill component
+### Cadets (~70% → ✅ done)
+- ✅ Chip-style status filter (All + active/inactive/graduated, tinted); rank · major · 'grad-year row subtitle; result-count footer ("N of M cadets")
+- ✅ Delete confirmation naming the cadet; distinct "No matches" vs "No cadets yet" empty states
+- ✅ `CadetStatusPill` tinted-capsule component in rows + detail (was plain colored text)
 
-### Contacts (~62%)
-- ❌ Search by email; email column; contact title in row
-- ❌ Latitude/longitude display + geocoding trigger
-- ❌ Item-count footer; distinct filtered empty state; skeletons
+### Contacts (~62% → ✅ done)
+- ✅ Search by name/school/email (backend `search` covers email); email + contact title now shown in the row
+- ✅ Latitude/longitude shown in detail alongside the Map link (geocoding runs server-side; no manual trigger needed)
+- ✅ Result-count footer ("N of M contacts"); distinct "No matches" vs "No contacts yet" empty states
+- ✅ Chip-style status filter row (All / Active / Inactive) replacing the Menu; delete confirmation names the contact
 - ⚠️ iOS uses sheet edit vs web inline (acceptable platform difference)
 
-### Events (~58% → ✅ calendar done)
+### Events (~58% → ✅ done)
 - ✅ **Calendar view** — month grid (6-week/42-cell), color-coded event pills (status dot + title, "+N more" overflow), today highlighted in amber, faded out-of-month days, prev/next/Today nav, Calendar/List segmented toggle. Pills + list rows both push the detail.
-- ❌ Save-success indicator; styled date chip in rows; skeletons (Tier-2 polish → item #7)
+- ✅ Styled month/day `EventDateChip` in list rows (mirrors web `dateChip`) + tinted `EventStatusPill` on each row
+- ✅ Save-success indicator ("Saved" flash) in `EventFormSheet` before the sheet dismisses
 
 ### Materials (~38% → ✅ done)
 - ✅ **Full CRUD.** Document upload (`.fileImporter` → multipart) + swipe-delete; link create/edit/delete via sheet + swipe actions

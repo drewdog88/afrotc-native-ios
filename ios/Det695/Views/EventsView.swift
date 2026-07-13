@@ -295,23 +295,68 @@ private struct EventRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Circle()
-                .fill(Theme.eventStatusColor(event.statusValue))
-                .frame(width: 10, height: 10)
+            EventDateChip(dateString: event.eventDate, tint: Theme.eventStatusColor(event.statusValue))
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title).font(.body.weight(.semibold))
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            EventStatusPill(status: event.statusValue)
         }
         .padding(.vertical, 4)
     }
 
     private var subtitle: String {
-        var parts = [DateDisplay.mediumDate(event.eventDate)]
+        var parts: [String] = []
         if let t = DateDisplay.time(event.startTime) { parts.append(t) }
         if let loc = event.location, !loc.isEmpty { parts.append(loc) }
+        if parts.isEmpty { parts.append(event.eventType) }
         return parts.joined(separator: " · ")
+    }
+}
+
+/// A month/day date box mirroring the web `dateChip` (tinted month abbreviation
+/// stacked over a bold day number).
+struct EventDateChip: View {
+    let dateString: String
+    let tint: Color
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text(month).font(.caption2.weight(.bold)).foregroundStyle(tint)
+            Text(day).font(.headline).foregroundStyle(Theme.ink)
+        }
+        .frame(width: 44, height: 44)
+        .background(RoundedRectangle(cornerRadius: 8).fill(tint.opacity(0.12)))
+    }
+
+    private var parsed: Date? { DateDisplay.parseDay(dateString) }
+    private var month: String {
+        guard let d = parsed else { return "—" }
+        return Self.monthFormatter.string(from: d).uppercased()
+    }
+    private var day: String {
+        guard let d = parsed else { return "?" }
+        return Self.dayFormatter.string(from: d)
+    }
+
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "MMM"; return f
+    }()
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "d"; return f
+    }()
+}
+
+/// A tinted status capsule for event rows, mirroring the web status tag.
+struct EventStatusPill: View {
+    let status: EventStatus
+    var body: some View {
+        Text(status.label)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Theme.eventStatusColor(status).opacity(0.18), in: Capsule())
+            .foregroundStyle(Theme.eventStatusColor(status))
     }
 }
 
@@ -440,6 +485,7 @@ private struct EventFormSheet: View {
     @State private var notes = ""
     @State private var status = EventStatus.scheduled
     @State private var saving = false
+    @State private var saved = false
     @State private var error: String?
 
     var body: some View {
@@ -448,6 +494,12 @@ private struct EventFormSheet: View {
                 if let error {
                     Section {
                         Text(error).foregroundStyle(Theme.danger)
+                    }
+                }
+                if saved {
+                    Section {
+                        Label("Saved", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(Theme.ok)
                     }
                 }
 
@@ -591,7 +643,10 @@ private struct EventFormSheet: View {
                 )
                 _ = try await APIClient.shared.updateEvent(id: event.id, input)
             }
+            saved = true
             await onSave()
+            // Brief success flash before the sheet closes.
+            try? await Task.sleep(nanoseconds: 500_000_000)
             dismiss()
         } catch {
             self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
