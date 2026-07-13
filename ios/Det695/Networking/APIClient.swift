@@ -62,6 +62,39 @@ actor APIClient {
         try await requestJSON("/auth/me", method: "GET", bodyData: nil, authed: true)
     }
 
+    // MARK: - Profile & security
+
+    func profile() async throws -> UserOut {
+        try await requestJSON("/profile", method: "GET", bodyData: nil, authed: true)
+    }
+
+    @discardableResult
+    func updateProfile(_ body: ProfileUpdate) async throws -> UserOut {
+        try await requestJSON("/profile", method: "PATCH", bodyData: try encoder.encode(body), authed: true)
+    }
+
+    func changePassword(_ body: PasswordChangeInput) async throws {
+        _ = try await requestData("/auth/change-password", method: "POST",
+                                  bodyData: try encoder.encode(body), authed: true)
+    }
+
+    func twoFAStatus() async throws -> TwoFAStatus {
+        try await requestJSON("/profile/2fa", method: "GET", bodyData: nil, authed: true)
+    }
+
+    func twoFASetup() async throws -> TwoFASetupResponse {
+        try await requestJSON("/profile/2fa/setup", method: "POST", bodyData: nil, authed: true)
+    }
+
+    func twoFAVerify(_ body: TwoFAVerifyInput) async throws {
+        _ = try await requestData("/profile/2fa/verify", method: "POST",
+                                  bodyData: try encoder.encode(body), authed: true)
+    }
+
+    func twoFADisable() async throws {
+        _ = try await requestData("/profile/2fa/disable", method: "POST", bodyData: nil, authed: true)
+    }
+
     func dashboardStats() async throws -> DashboardStats {
         try await requestJSON("/dashboard/stats", method: "GET", bodyData: nil, authed: true)
     }

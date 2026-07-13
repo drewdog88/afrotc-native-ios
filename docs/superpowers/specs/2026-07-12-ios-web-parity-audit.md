@@ -17,15 +17,15 @@ charts, calendar, item counts, geocoding, richer empty/error/loading states).
 | Web screen | What it does | iOS |
 |---|---|---|
 | **Admin** (`Admin.tsx`) | Admin-gated user management (list/search, add user, role picker, active toggle, delete) + paginated activity/audit log | ❌ none |
-| **Profile** (`Profile.tsx`) | View/edit profile (name/email/phone), change password, full 2FA/TOTP lifecycle (setup → verify → disable) | ❌ none (`logout()` exists but isn't even surfaced in UI) |
+| **Profile** (`Profile.tsx`) | View/edit profile (name/email/phone), change password, full 2FA/TOTP lifecycle (setup → verify → disable) | ✅ **done** — `ProfileView` in the More hub (view/edit, change password, 2FA copyable secret + URI, Sign Out) |
 | **Bulk import** (`ImportRecruits.tsx`) | 3-step CSV/Excel wizard: upload → per-row review (success/fail + errors) → summary | ❌ none |
 | **Forgot password** (`ForgotPassword.tsx`) | Security-question reset flow (identify → answer → new password) | ❌ none (users locked out can't self-recover) |
 | **Territory** (`Territory.tsx`) | Map of geocoded contacts + events with synced list | ❌ none (design already drafted: `2026-07-12-ios-territory-map-design.md`) |
 
 **Also missing / not surfaced:**
-- **Sign out** — `Session.logout()` exists but there's no button anywhere in the app.
-- **Profile/Settings entry point** — no destination in the More hub.
-- **Admin gating** — `UserOut.isAdmin` is decoded but gates nothing.
+- ✅ **Sign out** — now surfaced as a destructive footer button in `ProfileView` (confirmation dialog → `Session.logout()`).
+- ✅ **Profile/Settings entry point** — `.profile` destination ("Profile & Security") added to the More hub.
+- **Admin gating** — `UserOut.isAdmin` is decoded but gates nothing. (Pending — arrives with the Admin console, item #4.)
 
 ## Tier 2 — Screens that exist but lack sub-features
 
