@@ -71,9 +71,9 @@ charts, calendar, item counts, geocoding, richer empty/error/loading states).
 - ❌ Item-count footer; distinct filtered empty state; skeletons
 - ⚠️ iOS uses sheet edit vs web inline (acceptable platform difference)
 
-### Events (~58%)
-- ❌ **Calendar view** (month grid, event pills, today highlight, prev/next/Today) + list/calendar toggle — biggest single gap here
-- ❌ Save-success indicator; styled date chip in rows; skeletons
+### Events (~58% → ✅ calendar done)
+- ✅ **Calendar view** — month grid (6-week/42-cell), color-coded event pills (status dot + title, "+N more" overflow), today highlighted in amber, faded out-of-month days, prev/next/Today nav, Calendar/List segmented toggle. Pills + list rows both push the detail.
+- ❌ Save-success indicator; styled date chip in rows; skeletons (Tier-2 polish → item #7)
 
 ### Materials (~38% → ✅ done)
 - ✅ **Full CRUD.** Document upload (`.fileImporter` → multipart) + swipe-delete; link create/edit/delete via sheet + swipe actions
