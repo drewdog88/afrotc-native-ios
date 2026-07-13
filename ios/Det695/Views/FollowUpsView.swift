@@ -18,16 +18,50 @@ struct FollowUpsView: View {
             if let error {
                 Text(error).foregroundStyle(Theme.danger)
             }
-            group("Overdue", overdue, tint: Theme.danger)
-            group("Today", today, tint: Theme.accent)
-            group("Upcoming", upcoming, tint: Theme.muted)
-            if !done.isEmpty {
-                Section("Done") {
-                    ForEach(done) { f in row(f) }
+            if overdue.count > 0 {
+                Section {
+                    HStack(spacing: 10) {
+                        Circle().fill(Theme.danger).frame(width: 8, height: 8)
+                        Text("\(overdue.count) follow-up\(overdue.count == 1 ? "" : "s") past due — knock these out first.")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Theme.danger)
+                    }
+                    .listRowBackground(Theme.danger.opacity(0.08))
+                }
+            }
+            if !followups.isEmpty {
+                // Overdue and Today always render — an explicit "you're clear" signal.
+                group("Overdue", overdue, tint: Theme.danger,
+                      emptyCopy: "Nothing past due — you're caught up.")
+                group("Today", today, tint: Theme.accent,
+                      emptyCopy: "Nothing due today.")
+                // Upcoming / Done stay hidden when empty to keep the queue tight.
+                if !upcoming.isEmpty {
+                    group("Upcoming", upcoming, tint: Theme.muted, emptyCopy: nil)
+                }
+                if !done.isEmpty {
+                    Section("Done") {
+                        ForEach(done) { f in row(f) }
+                    }
                 }
             }
             if followups.isEmpty && !loading && error == nil {
-                ContentUnavailableView("No follow-ups", systemImage: "checklist")
+                Section {
+                    VStack(spacing: 12) {
+                        ContentUnavailableView {
+                            Label("No follow-ups yet", systemImage: "checklist")
+                        } description: {
+                            Text("Schedule a call, an email, or a check-in and it shows up here the moment it's due.")
+                        }
+                        Button {
+                            showingCreate = true
+                        } label: {
+                            Text("New follow-up").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Theme.accent)
+                    }
+                }
             }
         }
         .listStyle(.insetGrouped)
@@ -59,16 +93,20 @@ struct FollowUpsView: View {
     }
 
     @ViewBuilder
-    private func group(_ title: String, _ items: [FollowUpOut], tint: Color) -> some View {
-        if !items.isEmpty {
-            Section {
-                ForEach(items) { f in row(f) }
-            } header: {
-                HStack {
-                    Text(title)
-                    Spacer()
-                    Text("\(items.count)").foregroundStyle(tint)
+    private func group(_ title: String, _ items: [FollowUpOut], tint: Color, emptyCopy: String?) -> some View {
+        Section {
+            if items.isEmpty {
+                if let emptyCopy {
+                    Text(emptyCopy).font(.subheadline).foregroundStyle(.secondary)
                 }
+            } else {
+                ForEach(items) { f in row(f) }
+            }
+        } header: {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(items.count)").foregroundStyle(tint)
             }
         }
     }
@@ -124,7 +162,24 @@ struct FollowUpsView: View {
 
     private func dueLabel(_ f: FollowUpOut) -> String {
         if f.isDone { return "Completed \(DateDisplay.mediumDate(f.completedAt))" }
-        return "Due \(DateDisplay.mediumDateTime(f.dueDate))"
+        return "Due \(DateDisplay.mediumDateTime(f.dueDate)) · \(relativeDue(f.dueDate))"
+    }
+
+    /// "today" / "tomorrow" / "yesterday" / "N days overdue" / "in N days",
+    /// mirroring the web relativeDue helper.
+    private func relativeDue(_ iso: String) -> String {
+        guard let d = DateDisplay.parseDateTime(iso) else { return "" }
+        let cal = Calendar.current
+        let days = cal.dateComponents([.day],
+                                      from: cal.startOfDay(for: .now),
+                                      to: cal.startOfDay(for: d)).day ?? 0
+        switch days {
+        case 0: return "today"
+        case 1: return "tomorrow"
+        case -1: return "yesterday"
+        case ..<0: return "\(abs(days)) days overdue"
+        default: return "in \(days) days"
+        }
     }
 
     // MARK: - Grouping
@@ -205,7 +260,9 @@ private struct FollowUpCreateSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var note = ""
-    @State private var dueDate = Date()
+    /// Default to today at 5pm, matching the web create drawer.
+    @State private var dueDate = Calendar.current.date(
+        bySettingHour: 17, minute: 0, second: 0, of: .now) ?? .now
     @State private var selectedRecruitId: Int?
     @State private var availableRecruits: [(Int, String)] = []
     @State private var saving = false

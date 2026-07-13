@@ -62,6 +62,54 @@ actor APIClient {
         try await requestJSON("/auth/me", method: "GET", bodyData: nil, authed: true)
     }
 
+    /// Step 1 of self-service reset — returns the account's security question.
+    func forgotPassword(username: String) async throws -> SecretQuestionOut {
+        let body = ForgotPasswordRequest(username: username)
+        return try await requestJSON("/auth/forgot-password", method: "POST",
+                                     bodyData: try encoder.encode(body), authed: false)
+    }
+
+    /// Step 2 — answer the question and set a new password (also clears lockout).
+    @discardableResult
+    func resetPassword(username: String, secretAnswer: String, newPassword: String) async throws -> UserOut {
+        let body = ResetPasswordRequest(username: username, secretAnswer: secretAnswer, newPassword: newPassword)
+        return try await requestJSON("/auth/reset-password", method: "POST",
+                                     bodyData: try encoder.encode(body), authed: false)
+    }
+
+    // MARK: - Profile & security
+
+    func profile() async throws -> UserOut {
+        try await requestJSON("/profile", method: "GET", bodyData: nil, authed: true)
+    }
+
+    @discardableResult
+    func updateProfile(_ body: ProfileUpdate) async throws -> UserOut {
+        try await requestJSON("/profile", method: "PATCH", bodyData: try encoder.encode(body), authed: true)
+    }
+
+    func changePassword(_ body: PasswordChangeInput) async throws {
+        _ = try await requestData("/auth/change-password", method: "POST",
+                                  bodyData: try encoder.encode(body), authed: true)
+    }
+
+    func twoFAStatus() async throws -> TwoFAStatus {
+        try await requestJSON("/profile/2fa", method: "GET", bodyData: nil, authed: true)
+    }
+
+    func twoFASetup() async throws -> TwoFASetupResponse {
+        try await requestJSON("/profile/2fa/setup", method: "POST", bodyData: nil, authed: true)
+    }
+
+    func twoFAVerify(_ body: TwoFAVerifyInput) async throws {
+        _ = try await requestData("/profile/2fa/verify", method: "POST",
+                                  bodyData: try encoder.encode(body), authed: true)
+    }
+
+    func twoFADisable() async throws {
+        _ = try await requestData("/profile/2fa/disable", method: "POST", bodyData: nil, authed: true)
+    }
+
     func dashboardStats() async throws -> DashboardStats {
         try await requestJSON("/dashboard/stats", method: "GET", bodyData: nil, authed: true)
     }
@@ -175,6 +223,95 @@ actor APIClient {
                               bodyData: nil, authed: true)
     }
 
+    // Material links
+    @discardableResult
+    func createLink(_ body: LinkCreateInput) async throws -> LinkOut {
+        try await requestJSON("/materials/links", method: "POST",
+                              bodyData: try encoder.encode(body), authed: true)
+    }
+    @discardableResult
+    func updateLink(id: Int, _ body: LinkUpdateInput) async throws -> LinkOut {
+        try await requestJSON("/materials/links/\(id)", method: "PATCH",
+                              bodyData: try encoder.encode(body), authed: true)
+    }
+    func deleteLink(id: Int) async throws {
+        _ = try await requestData("/materials/links/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
+    // Documents
+    /// Upload a document as multipart/form-data. Title/description/category ride
+    /// as query params (the backend reads them as query args, not form fields).
+    @discardableResult
+    func uploadDocument(fileData: Data, filename: String, mimeType: String,
+                        title: String? = nil, description: String? = nil,
+                        category: String? = nil) async throws -> DocumentOut {
+        var q: [URLQueryItem] = []
+        if let title, !title.isEmpty { q.append(URLQueryItem(name: "title", value: title)) }
+        if let description, !description.isEmpty { q.append(URLQueryItem(name: "description", value: description)) }
+        if let category, !category.isEmpty { q.append(URLQueryItem(name: "category", value: category)) }
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body = Data()
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n")
+        body.append("Content-Type: \(mimeType)\r\n\r\n")
+        body.append(fileData)
+        body.append("\r\n--\(boundary)--\r\n")
+
+        return try await requestJSON("/materials/documents", method: "POST", bodyData: body,
+                                     authed: true, query: q,
+                                     contentType: "multipart/form-data; boundary=\(boundary)")
+    }
+    func deleteDocument(id: Int) async throws {
+        _ = try await requestData("/materials/documents/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
+    // MARK: - Bulk import
+
+    /// Upload a CSV/Excel roster to `/recruits/import` as multipart/form-data and
+    /// get back the per-row result. Write-gated on the backend (`require_write`).
+    func importRecruits(fileData: Data, filename: String, mimeType: String) async throws -> ImportResult {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body = Data()
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n")
+        body.append("Content-Type: \(mimeType)\r\n\r\n")
+        body.append(fileData)
+        body.append("\r\n--\(boundary)--\r\n")
+        return try await requestJSON("/recruits/import", method: "POST", bodyData: body,
+                                     authed: true,
+                                     contentType: "multipart/form-data; boundary=\(boundary)")
+    }
+
+    // MARK: - Admin
+
+    func adminUsers(search: String? = nil, skip: Int = 0, limit: Int = 200) async throws -> Page<UserOut> {
+        var q = [URLQueryItem(name: "skip", value: String(skip)),
+                 URLQueryItem(name: "limit", value: String(limit))]
+        if let search, !search.isEmpty { q.append(URLQueryItem(name: "search", value: search)) }
+        return try await requestJSON("/admin/users", method: "GET", bodyData: nil, authed: true, query: q)
+    }
+
+    @discardableResult
+    func createAdminUser(_ body: AdminUserCreate) async throws -> UserOut {
+        try await requestJSON("/admin/users", method: "POST", bodyData: try encoder.encode(body), authed: true)
+    }
+
+    @discardableResult
+    func updateAdminUser(id: Int, _ body: AdminUserUpdate) async throws -> UserOut {
+        try await requestJSON("/admin/users/\(id)", method: "PATCH", bodyData: try encoder.encode(body), authed: true)
+    }
+
+    func deleteAdminUser(id: Int) async throws {
+        _ = try await requestData("/admin/users/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
+    func adminActivity(skip: Int = 0, limit: Int = 25) async throws -> Page<ActivityLogOut> {
+        let q = [URLQueryItem(name: "skip", value: String(skip)),
+                 URLQueryItem(name: "limit", value: String(limit))]
+        return try await requestJSON("/admin/activity", method: "GET", bodyData: nil, authed: true, query: q)
+    }
+
     // MARK: - Mutations
 
     // Recruits
@@ -251,8 +388,10 @@ actor APIClient {
     // MARK: - Core request
 
     private func requestJSON<T: Decodable>(_ path: String, method: String, bodyData: Data?,
-                                           authed: Bool, query: [URLQueryItem] = []) async throws -> T {
-        let data = try await requestData(path, method: method, bodyData: bodyData, authed: authed, query: query)
+                                           authed: Bool, query: [URLQueryItem] = [],
+                                           contentType: String = "application/json") async throws -> T {
+        let data = try await requestData(path, method: method, bodyData: bodyData, authed: authed,
+                                         query: query, contentType: contentType)
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
@@ -263,6 +402,7 @@ actor APIClient {
     @discardableResult
     private func requestData(_ path: String, method: String, bodyData: Data?,
                              authed: Bool, query: [URLQueryItem] = [],
+                             contentType: String = "application/json",
                              retry: Bool = true) async throws -> Data {
         guard var comps = URLComponents(string: base.absoluteString + path) else {
             throw APIError.invalidResponse
@@ -274,7 +414,7 @@ actor APIClient {
         req.httpMethod = method
         if let bodyData {
             req.httpBody = bodyData
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
         if authed, let token = accessToken {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -291,7 +431,8 @@ actor APIClient {
 
         if http.statusCode == 401 && authed && retry, await refreshTokens() {
             return try await requestData(path, method: method, bodyData: bodyData,
-                                         authed: authed, query: query, retry: false)
+                                         authed: authed, query: query,
+                                         contentType: contentType, retry: false)
         }
 
         guard (200..<300).contains(http.statusCode) else {
@@ -324,5 +465,12 @@ actor APIClient {
         if let arr = obj["detail"] as? [[String: Any]], let first = arr.first,
            let msg = first["msg"] as? String { return msg }
         return ""
+    }
+}
+
+private extension Data {
+    /// Append a UTF-8 string — used to assemble multipart/form-data bodies.
+    mutating func append(_ string: String) {
+        if let d = string.data(using: .utf8) { append(d) }
     }
 }

@@ -6,16 +6,26 @@ struct RecruitRoute: Hashable { let id: Int }
 /// Recruits list with search + stage filter, mirroring the web Recruits page.
 struct RecruitsView: View {
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var session: Session
     @State private var recruits: [RecruitOut] = []
+    @State private var total = 0
     @State private var search = ""
     @State private var stage: RecruitStage?
     @State private var error: String?
     @State private var loading = false
     @State private var showCreate = false
+    @State private var showImport = false
+
+    private var canWrite: Bool { (session.user?.role ?? "viewer") != "viewer" }
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    StageFilterChips(stage: $stage)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                        .listRowSeparator(.hidden)
+                }
                 if let error {
                     Text(error).foregroundStyle(Theme.danger)
                 }
@@ -23,7 +33,20 @@ struct RecruitsView: View {
                     NavigationLink(value: RecruitRoute(id: r.id)) { RecruitRow(recruit: r) }
                 }
                 if recruits.isEmpty && !loading && error == nil {
-                    ContentUnavailableView("No recruits", systemImage: "person.2")
+                    ContentUnavailableView {
+                        Label(isFiltered ? "No matches" : "No recruits yet", systemImage: "person.2")
+                    } description: {
+                        Text(isFiltered
+                             ? "No recruits match this view."
+                             : "Add your first prospect to get started.")
+                    }
+                    .listRowSeparator(.hidden)
+                }
+                if !recruits.isEmpty {
+                    Text(countLabel)
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .listRowSeparator(.hidden)
                 }
             }
             .listStyle(.plain)
@@ -35,21 +58,21 @@ struct RecruitsView: View {
             .searchable(text: $search, prompt: "Search recruits")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showCreate = true
-                    } label: {
-                        Label("Add", systemImage: "plus")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("All stages") { stage = nil }
-                        Divider()
-                        ForEach(RecruitStage.allCases) { s in
-                            Button(s.label) { stage = s }
+                        Button {
+                            showCreate = true
+                        } label: {
+                            Label("Add recruit", systemImage: "plus")
+                        }
+                        if canWrite {
+                            Button {
+                                showImport = true
+                            } label: {
+                                Label("Import from file", systemImage: "square.and.arrow.down")
+                            }
                         }
                     } label: {
-                        Label(stage?.label ?? "All", systemImage: "line.3.horizontal.decrease.circle")
+                        Label("Add", systemImage: "plus")
                     }
                 }
             }
@@ -57,6 +80,9 @@ struct RecruitsView: View {
             .refreshable { await load() }
             .sheet(isPresented: $showCreate) {
                 RecruitFormSheet(mode: .create) { await load() }
+            }
+            .sheet(isPresented: $showImport) {
+                ImportRecruitsView { Task { await load() } }
             }
             .onAppear {
                 if let pendingStage = router.pendingRecruitStage {
@@ -74,16 +100,65 @@ struct RecruitsView: View {
     }
 
     private var filterKey: String { "\(search)|\(stage?.rawValue ?? "")" }
+    private var isFiltered: Bool { !search.isEmpty || stage != nil }
+
+    /// Short school-type label for tight spaces (list rows).
+    static func schoolTypeShort(_ raw: String) -> String {
+        switch raw.lowercased() {
+        case "high_school": return "HS"
+        case "college", "university": return "College"
+        default: return raw.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    private var countLabel: String {
+        let shown = recruits.count
+        let suffix = total > shown ? " of \(total)" : ""
+        return "\(shown)\(suffix) recruit\(total == 1 ? "" : "s")"
+    }
 
     private func load() async {
         loading = true
         error = nil
         defer { loading = false }
         do {
-            recruits = try await APIClient.shared.recruits(search: search, stage: stage).items
+            let page = try await APIClient.shared.recruits(search: search, stage: stage)
+            recruits = page.items
+            total = page.total
         } catch {
             self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
         }
+    }
+}
+
+/// Horizontally-scrolling stage filter chips (All + each stage), mirroring the
+/// web Recruits chip row. Tapping the active chip clears the filter.
+private struct StageFilterChips: View {
+    @Binding var stage: RecruitStage?
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                chip(label: "All", active: stage == nil, tint: Theme.ink) { stage = nil }
+                ForEach(RecruitStage.allCases) { s in
+                    chip(label: s.label, active: stage == s, tint: Theme.stageColor(s)) {
+                        stage = (stage == s) ? nil : s
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private func chip(label: String, active: Bool, tint: Color, tap: @escaping () -> Void) -> some View {
+        Button(action: tap) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(active ? tint : tint.opacity(0.12), in: Capsule())
+                .foregroundStyle(active ? .white : tint)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -94,7 +169,12 @@ private struct RecruitRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(recruit.fullName).font(.body.weight(.semibold))
-                Text(recruit.currentSchool).font(.caption).foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(recruit.currentSchool)
+                    Text("·")
+                    Text(RecruitsView.schoolTypeShort(recruit.schoolType))
+                }
+                .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             StageBadge(stage: recruit.stageValue)
@@ -126,27 +206,31 @@ struct RecruitDetailView: View {
     @State private var showEdit = false
     @State private var showDeleteConfirm = false
     @State private var showStageChange = false
+    @State private var stageError: String?
     @State private var deleting = false
 
     var body: some View {
         Group {
             if let r = recruit {
                 Form {
+                    if let stageError {
+                        Section { Text(stageError).foregroundStyle(Theme.danger) }
+                    }
                     Section {
                         LabeledRow("Name", r.fullName)
-                        HStack {
-                            Text("Stage").foregroundStyle(.secondary)
-                            Spacer()
-                            Menu {
-                                ForEach(RecruitStage.allCases) { stage in
-                                    Button(stage.label) {
-                                        Task { await changeStage(to: stage) }
-                                    }
-                                }
-                            } label: {
+                        Button {
+                            stageError = nil
+                            showStageChange = true
+                        } label: {
+                            HStack {
+                                Text("Stage").foregroundStyle(.secondary)
+                                Spacer()
                                 StageBadge(stage: r.stageValue)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2).foregroundStyle(.tertiary)
                             }
                         }
+                        .tint(.primary)
                         LabeledRow("School", r.currentSchool)
                         LabeledRow("Type", schoolTypeLabel(r.schoolType))
                         if let m = r.major, !m.isEmpty { LabeledRow("Major", m) }
@@ -208,12 +292,19 @@ struct RecruitDetailView: View {
             }
         }
         .confirmationDialog("Delete this recruit?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+            Button("Delete \(recruit?.fullName ?? "recruit")", role: .destructive) {
                 Task { await deleteRecruit() }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This action cannot be undone.")
+            Text("This permanently removes \(recruit?.fullName ?? "this recruit") and their stage history. This can't be undone.")
+        }
+        .sheet(isPresented: $showStageChange) {
+            if let r = recruit {
+                StageChangeSheet(recruit: r) { newStage, note in
+                    await changeStage(to: newStage, note: note)
+                }
+            }
         }
         .task { await load() }
     }
@@ -237,13 +328,15 @@ struct RecruitDetailView: View {
         }
     }
 
-    private func changeStage(to newStage: RecruitStage) async {
+    private func changeStage(to newStage: RecruitStage, note: String?) async {
         guard let current = recruit, current.stageValue != newStage else { return }
+        stageError = nil
         do {
-            recruit = try await APIClient.shared.changeRecruitStage(id: recruitId, toStage: newStage.rawValue)
+            recruit = try await APIClient.shared.changeRecruitStage(
+                id: recruitId, toStage: newStage.rawValue, note: note)
             history = (try? await APIClient.shared.recruitStageHistory(id: recruitId)) ?? []
         } catch {
-            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            stageError = (error as? APIError)?.errorDescription ?? error.localizedDescription
         }
     }
 
@@ -283,6 +376,78 @@ private struct StageEventRow: View {
     }
 }
 
+/// Advance a recruit to a new stage with an optional note, mirroring the web
+/// stage-change control. The current stage is disabled; the note is written to
+/// the RecruitStageEvent history.
+private struct StageChangeSheet: View {
+    let recruit: RecruitOut
+    let onChange: (RecruitStage, String?) async -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var selection: RecruitStage
+    @State private var note = ""
+    @State private var saving = false
+
+    init(recruit: RecruitOut, onChange: @escaping (RecruitStage, String?) async -> Void) {
+        self.recruit = recruit
+        self.onChange = onChange
+        _selection = State(initialValue: recruit.stageValue)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("New stage") {
+                    ForEach(RecruitStage.allCases) { s in
+                        Button {
+                            selection = s
+                        } label: {
+                            HStack {
+                                StageBadge(stage: s)
+                                if s == recruit.stageValue {
+                                    Text("current").font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if s == selection {
+                                    Image(systemName: "checkmark").foregroundStyle(Theme.accent)
+                                }
+                            }
+                        }
+                        .tint(.primary)
+                        .disabled(s == recruit.stageValue)
+                    }
+                }
+                Section {
+                    TextField("Note (optional)", text: $note, axis: .vertical)
+                        .lineLimit(2...4)
+                } header: {
+                    Text("Note")
+                } footer: {
+                    Text("Added to \(recruit.fullName)'s stage history.")
+                }
+            }
+            .navigationTitle("Change stage")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.disabled(saving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(saving ? "Saving…" : "Save") {
+                        saving = true
+                        Task {
+                            let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+                            await onChange(selection, trimmed.isEmpty ? nil : trimmed)
+                            dismiss()
+                        }
+                    }
+                    .disabled(saving || selection == recruit.stageValue)
+                }
+            }
+        }
+    }
+}
+
 /// Reusable form sheet for creating and editing recruits.
 private struct RecruitFormSheet: View {
     enum Mode {
@@ -305,6 +470,7 @@ private struct RecruitFormSheet: View {
     @State private var lastName = ""
     @State private var currentSchool = ""
     @State private var schoolType = "high_school"
+    @State private var startingStage: RecruitStage = .lead
     @State private var email = ""
     @State private var phone = ""
     @State private var major = ""
@@ -329,6 +495,13 @@ private struct RecruitFormSheet: View {
                     Picker("School type", selection: $schoolType) {
                         Text("High school").tag("high_school")
                         Text("College").tag("college")
+                    }
+                    if case .create = mode {
+                        Picker("Starting stage", selection: $startingStage) {
+                            ForEach(RecruitStage.allCases) { s in
+                                Text(s.label).tag(s)
+                            }
+                        }
                     }
                 }
                 Section("Contact") {
@@ -410,7 +583,7 @@ private struct RecruitFormSheet: View {
                     lastName: lastName.trimmingCharacters(in: .whitespaces),
                     currentSchool: currentSchool.trimmingCharacters(in: .whitespaces),
                     schoolType: schoolType,
-                    stage: "lead",
+                    stage: startingStage.rawValue,
                     email: trimmedEmail.isEmpty ? nil : trimmedEmail,
                     phone: trimmedPhone.isEmpty ? nil : trimmedPhone,
                     major: trimmedMajor.isEmpty ? nil : trimmedMajor,

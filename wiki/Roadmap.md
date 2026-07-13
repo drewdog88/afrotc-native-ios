@@ -21,6 +21,7 @@ flowchart LR
         D4["Security + backups/restore drill"]
         D5["Det 695 crest everywhere"]
         D6["Backend test suite<br>95 pytest tests, green"]
+        D7["iOS ~100% web parity<br>every screen + sub-feature"]
     end
     subgraph next["🔜 Next"]
         N1["Client tests<br>iOS + web coverage"]
@@ -30,7 +31,6 @@ flowchart LR
     subgraph later["💡 Later / ideas"]
         L1["Richer analytics"]
         L2["iOS push reminders"]
-        L3["iOS page parity"]
         L4["TestFlight pipeline"]
     end
 
@@ -39,9 +39,9 @@ flowchart LR
     classDef ok fill:#2f8f6b,stroke:#1c6349,color:#ffffff
     classDef soon fill:#f2a83b,stroke:#c9852a,color:#3a2600
     classDef idea fill:#1e4c87,stroke:#16396a,color:#ffffff
-    class D1,D2,D3,D4,D5,D6 ok
+    class D1,D2,D3,D4,D5,D6,D7 ok
     class N1,N2,N3 soon
-    class L1,L2,L3,L4 idea
+    class L1,L2,L4 idea
 ```
 
 ## ✅ Done
@@ -53,6 +53,7 @@ flowchart LR
 - Security: JWT auth with refresh, bcrypt passwords with lockout/history/expiry, Fernet-encrypted TOTP 2FA, activity log, and a hardened CSP + header set on Vercel.
 - Data protection: nightly `pg_dump` → GitHub Release backups and a weekly automated restore drill.
 - Web + iOS both carry the real Detachment 695 crest.
+- **iOS ~100% web parity.** Every top-level web screen has an iOS equivalent — Admin, Profile/2FA, bulk import, forgot-password, Territory map, Events calendar — and the within-screen sub-features (charts, chip filters, result counts, richer empty/error/skeleton states, stage-change-with-note, Dashboard/Pipeline chart depth) are all closed. Tracked in the parity audit at `docs/superpowers/specs/2026-07-12-ios-web-parity-audit.md`.
 - **Backend test suite:** 95 pytest tests across 15 files, green today — every `/api/v1` endpoint module (auth, funnel, cadets, contacts, events, follow-ups, materials, imports, exports, analytics, profile/2FA), plus admin guardrails and the read-only viewer role. See [Testing](Testing).
 
 ## 🔜 Next
@@ -65,7 +66,6 @@ flowchart LR
 
 - Richer analytics (per-recruiter, per-school conversion; event ROI).
 - Push notifications / reminders for due follow-ups on iOS.
-- iOS parity for the pages that are currently web-only (Contacts detail, Events detail, Admin).
 - App Store / TestFlight distribution pipeline for the iOS client.
 
 ## 🚧 Non-goals / constraints
