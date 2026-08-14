@@ -1,8 +1,7 @@
 import Foundation
 import Security
-import os
 
-private let kcLog = Logger(subsystem: "com.det695.recruiting", category: "keychain")
+private let kcLog = DebugLog(category: "keychain")
 
 /// Minimal Keychain-backed string store for the JWT access/refresh pair.
 /// Values live in the login keychain keyed by a service + account string.
@@ -24,9 +23,9 @@ enum Keychain {
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
         let status = SecItemAdd(add as CFDictionary, nil)
         if status != errSecSuccess {
-            kcLog.error("SecItemAdd(\(account, privacy: .public)) failed: OSStatus=\(status, privacy: .public) (\(SecCopyErrorMessageString(status, nil) as String? ?? "?", privacy: .public))")
+            kcLog.error("SecItemAdd(\(account)) failed: OSStatus=\(status) (\(SecCopyErrorMessageString(status, nil) as String? ?? "?"))")
         } else {
-            kcLog.notice("SecItemAdd(\(account, privacy: .public)) ok, \(data.count, privacy: .public) bytes")
+            kcLog.notice("SecItemAdd(\(account)) ok, \(data.count) bytes")
         }
     }
 
@@ -41,7 +40,7 @@ enum Keychain {
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         guard status == errSecSuccess, let data = result as? Data else {
-            kcLog.error("SecItemCopyMatching(\(account, privacy: .public)) miss: OSStatus=\(status, privacy: .public) (\(SecCopyErrorMessageString(status, nil) as String? ?? "?", privacy: .public))")
+            kcLog.error("SecItemCopyMatching(\(account)) miss: OSStatus=\(status) (\(SecCopyErrorMessageString(status, nil) as String? ?? "?"))")
             return nil
         }
         return String(data: data, encoding: .utf8)

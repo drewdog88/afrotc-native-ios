@@ -1,11 +1,11 @@
 import Foundation
-import os
 
-/// Structured logging for the network layer. View it live with:
-///   xcrun simctl spawn booted log stream --level debug \
+/// Structured tracing for the network layer, compiled out of release builds.
+/// View it live in DEBUG with:
+///   xcrun simctl spawn booted log stream \
 ///     --predicate 'subsystem == "com.det695.recruiting" && category == "net"'
 /// (drop `simctl spawn booted` and use Console.app / `log stream` for a device).
-private let netLog = Logger(subsystem: "com.det695.recruiting", category: "net")
+private let netLog = DebugLog(category: "net")
 
 /// Async client over the FastAPI backend. Holds the JWT access/refresh pair in
 /// the Keychain, attaches the bearer token, and transparently refreshes once on
@@ -403,7 +403,7 @@ actor APIClient {
             return try decoder.decode(T.self, from: data)
         } catch {
             let snippet = String(decoding: data.prefix(512), as: UTF8.self)
-            netLog.error("✗ decode \(T.self, privacy: .public) failed for \(path, privacy: .public): \(String(describing: error), privacy: .public) — body=\(snippet, privacy: .public)")
+            netLog.error("✗ decode \(T.self) failed for \(path): \(String(describing: error)) — body=\(snippet)")
             throw APIError.decoding(String(describing: error))
         }
     }
@@ -429,19 +429,19 @@ actor APIClient {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        netLog.notice("→ \(method, privacy: .public) \(url.absoluteString, privacy: .public) authed=\(authed, privacy: .public) bodyBytes=\(bodyData?.count ?? 0, privacy: .public)")
+        netLog.notice("→ \(method) \(url.absoluteString) authed=\(authed) bodyBytes=\(bodyData?.count ?? 0)")
 
         let data: Data, response: URLResponse
         do {
             (data, response) = try await session.data(for: req)
         } catch {
             let ns = error as NSError
-            netLog.error("✗ transport \(method, privacy: .public) \(url.absoluteString, privacy: .public): \(ns.domain, privacy: .public) code=\(ns.code, privacy: .public) \(ns.localizedDescription, privacy: .public)")
+            netLog.error("✗ transport \(method) \(url.absoluteString): \(ns.domain) code=\(ns.code) \(ns.localizedDescription)")
             throw APIError.transport(error.localizedDescription)
         }
 
         guard let http = response as? HTTPURLResponse else {
-            netLog.error("✗ non-HTTP response for \(url.absoluteString, privacy: .public)")
+            netLog.error("✗ non-HTTP response for \(url.absoluteString)")
             throw APIError.invalidResponse
         }
 
@@ -449,7 +449,7 @@ actor APIClient {
         // security-checkpoint challenge (HTML body on a 2xx/redirect) is obvious in the log.
         let finalURL = http.url?.absoluteString ?? url.absoluteString
         let mitigated = http.value(forHTTPHeaderField: "x-vercel-mitigated") ?? "-"
-        netLog.notice("← \(http.statusCode, privacy: .public) \(finalURL, privacy: .public) bytes=\(data.count, privacy: .public) vercel-mitigated=\(mitigated, privacy: .public)")
+        netLog.notice("← \(http.statusCode) \(finalURL) bytes=\(data.count) vercel-mitigated=\(mitigated)")
 
         if http.statusCode == 401 && authed && retry, await refreshTokens() {
             return try await requestData(path, method: method, bodyData: bodyData,
@@ -459,7 +459,7 @@ actor APIClient {
 
         guard (200..<300).contains(http.statusCode) else {
             let bodySnippet = String(decoding: data.prefix(512), as: UTF8.self)
-            netLog.error("✗ \(http.statusCode, privacy: .public) \(finalURL, privacy: .public) body=\(bodySnippet, privacy: .public)")
+            netLog.error("✗ \(http.statusCode) \(finalURL) body=\(bodySnippet)")
             if http.statusCode == 401 { throw APIError.unauthorized }
             throw APIError.http(status: http.statusCode, message: Self.messageFromDetail(data))
         }
