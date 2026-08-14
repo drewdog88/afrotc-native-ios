@@ -29,6 +29,15 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.det695.recruiting
+    # Without an entitlements file the app has no application-identifier, so every
+    # Keychain call fails with errSecMissingEntitlement (-34018) — which silently
+    # dropped the JWT after login and made /auth/me 401. The keychain-access-group
+    # gives the app its own keychain and fixes that.
+    entitlements:
+      path: Det695/Det695.entitlements
+      properties:
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.det695.recruiting
     info:
       # XcodeGen generates this Info.plist from the properties below and points
       # INFOPLIST_FILE at it.

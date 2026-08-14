@@ -1,5 +1,8 @@
 import Foundation
 import Security
+import os
+
+private let kcLog = Logger(subsystem: "com.det695.recruiting", category: "keychain")
 
 /// Minimal Keychain-backed string store for the JWT access/refresh pair.
 /// Values live in the login keychain keyed by a service + account string.
@@ -19,7 +22,12 @@ enum Keychain {
         var add = base
         add[kSecValueData as String] = data
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        SecItemAdd(add as CFDictionary, nil)
+        let status = SecItemAdd(add as CFDictionary, nil)
+        if status != errSecSuccess {
+            kcLog.error("SecItemAdd(\(account, privacy: .public)) failed: OSStatus=\(status, privacy: .public) (\(SecCopyErrorMessageString(status, nil) as String? ?? "?", privacy: .public))")
+        } else {
+            kcLog.notice("SecItemAdd(\(account, privacy: .public)) ok, \(data.count, privacy: .public) bytes")
+        }
     }
 
     static func get(_ account: String) -> String? {
@@ -31,8 +39,11 @@ enum Keychain {
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else {
+            kcLog.error("SecItemCopyMatching(\(account, privacy: .public)) miss: OSStatus=\(status, privacy: .public) (\(SecCopyErrorMessageString(status, nil) as String? ?? "?", privacy: .public))")
+            return nil
+        }
         return String(data: data, encoding: .utf8)
     }
 }
