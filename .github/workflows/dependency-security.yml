@@ -1,0 +1,229 @@
+name: Dependency Security Audit
+
+# Weekly dependency vulnerability audit for the app surfaces in this repo.
+# - web: npm lockfile audit
+# - iOS: OSV Scanner covers SwiftPM/CocoaPods/other lockfiles if they are added
+# The workflow opens or updates one GitHub issue when vulnerabilities are found,
+# and closes that issue once a later run is clean.
+
+on:
+  schedule:
+    - cron: "30 10 * * 1" # Mondays 10:30 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+
+concurrency:
+  group: dependency-security-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies for audit
+        working-directory: web
+        run: npm ci --ignore-scripts
+
+      - name: Run web npm audit
+        working-directory: web
+        run: |
+          mkdir -p ../dependency-audit
+          npm audit --json > ../dependency-audit/web-npm-audit.json || true
+
+      - name: Run OSV Scanner across lockfiles
+        id: osv
+        uses: google/osv-scanner-action/osv-scanner-action@v2.3.8
+        continue-on-error: true
+        with:
+          scan-args: |-
+            --format=json
+            --output=dependency-audit/osv.json
+            --recursive
+            ./
+
+      - name: Build dependency security report
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OSV_OUTCOME: ${{ steps.osv.outcome }}
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+
+          const outDir = "dependency-audit";
+          fs.mkdirSync(outDir, { recursive: true });
+
+          function readJson(file) {
+            try {
+              return JSON.parse(fs.readFileSync(file, "utf8"));
+            } catch {
+              return null;
+            }
+          }
+
+          const npmAudit = readJson(path.join(outDir, "web-npm-audit.json"));
+          const npmCounts = npmAudit?.metadata?.vulnerabilities ?? {};
+          const npmTotal = Number(npmCounts.total ?? 0);
+
+          const osv = readJson(path.join(outDir, "osv.json"));
+          const osvOutcome = process.env.OSV_OUTCOME ?? "unknown";
+          const osvFindings = [];
+          for (const result of osv?.results ?? []) {
+            for (const pkg of result.packages ?? []) {
+              const vulnIds = new Set();
+              for (const group of pkg.groups ?? []) {
+                for (const id of group.ids ?? []) vulnIds.add(id);
+              }
+              for (const vuln of pkg.vulnerabilities ?? []) {
+                if (vuln.id) vulnIds.add(vuln.id);
+              }
+              if (vulnIds.size > 0) {
+                osvFindings.push({
+                  source: result.source?.path ?? "unknown source",
+                  packageName: pkg.package?.name ?? "unknown package",
+                  version: pkg.package?.version ?? "unknown version",
+                  ids: [...vulnIds].sort(),
+                });
+              }
+            }
+          }
+
+          const iosManifests = [
+            "ios/Package.resolved",
+            "ios/Podfile.lock",
+            "ios/Cartfile.resolved",
+          ].filter((file) => fs.existsSync(file));
+
+          const lines = [];
+          lines.push("# Dependency Security Audit");
+          lines.push("");
+          lines.push(`Run: ${process.env.RUN_URL}`);
+          lines.push("");
+          lines.push("## Summary");
+          lines.push("");
+          lines.push(`- Web npm vulnerabilities: ${npmTotal}`);
+          lines.push(`- OSV lockfile findings: ${osvFindings.length}`);
+          lines.push(
+            iosManifests.length
+              ? `- iOS dependency lockfiles scanned: ${iosManifests.join(", ")}`
+              : "- iOS dependency lockfiles scanned: none present (no SwiftPM, CocoaPods, or Carthage dependencies committed)"
+          );
+          lines.push("");
+
+          if (npmTotal > 0) {
+            lines.push("## Web npm audit");
+            lines.push("");
+            for (const [severity, count] of Object.entries(npmCounts)) {
+              if (severity !== "total" && Number(count) > 0) {
+                lines.push(`- ${severity}: ${count}`);
+              }
+            }
+            lines.push("");
+            for (const [name, vuln] of Object.entries(npmAudit?.vulnerabilities ?? {})) {
+              lines.push(`- ${name}: ${vuln.severity}; fix available: ${Boolean(vuln.fixAvailable)}`);
+            }
+            lines.push("");
+          }
+
+          const osvScanFailed = osvOutcome !== "success" && osvFindings.length === 0;
+
+          if (osvScanFailed) {
+            lines.push("## OSV scanner failure");
+            lines.push("");
+            lines.push("OSV Scanner did not complete cleanly and did not produce parseable vulnerability findings. Review the workflow logs before treating this audit as clean.");
+            lines.push("");
+          }
+
+          if (osvFindings.length > 0) {
+            lines.push("## OSV findings");
+            lines.push("");
+            for (const finding of osvFindings) {
+              lines.push(
+                `- ${finding.packageName}@${finding.version} in ${finding.source}: ${finding.ids.join(", ")}`
+              );
+            }
+            lines.push("");
+          }
+
+          lines.push("## Expected response");
+          lines.push("");
+          lines.push("- Review the linked workflow run and affected packages.");
+          lines.push("- Update the vulnerable package or its parent dependency.");
+          lines.push("- Re-run this workflow; it will close this issue automatically once clean.");
+          lines.push("");
+
+          const hasFindings = npmTotal > 0 || osvFindings.length > 0 || osvScanFailed;
+          fs.writeFileSync(path.join(outDir, "issue-body.md"), lines.join("\n"));
+          fs.appendFileSync(process.env.GITHUB_ENV, `HAS_SECURITY_FINDINGS=${hasFindings ? "true" : "false"}\n`);
+          NODE
+
+      - name: Open or update dependency security issue
+        if: env.HAS_SECURITY_FINDINGS == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh label create dependency-security \
+            --repo "$GITHUB_REPOSITORY" \
+            --color b60205 \
+            --description "Dependency vulnerability audit findings" 2>/dev/null || true
+
+          EXISTING="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --label dependency-security \
+            --json number \
+            --jq '.[0].number' 2>/dev/null || true)"
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body-file dependency-audit/issue-body.md
+          else
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Dependency security audit found vulnerabilities" \
+              --label dependency-security \
+              --body-file dependency-audit/issue-body.md
+          fi
+
+      - name: Close stale dependency security issue when clean
+        if: env.HAS_SECURITY_FINDINGS == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OSV_OUTCOME: ${{ steps.osv.outcome }}
+        run: |
+          set -euo pipefail
+          EXISTING="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --label dependency-security \
+            --json number \
+            --jq '.[0].number' 2>/dev/null || true)"
+
+          if [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" \
+              --repo "$GITHUB_REPOSITORY" \
+              --comment "Latest dependency security audit is clean: $RUN_URL"
+          fi
+
+      - name: Fail workflow when vulnerabilities are present
+        if: env.HAS_SECURITY_FINDINGS == 'true'
+        run: |
+          echo "::error::Dependency security vulnerabilities were found. A GitHub issue was opened or updated."
+          exit 1
