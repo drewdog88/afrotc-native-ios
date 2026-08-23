@@ -38,6 +38,17 @@ export function Recruits() {
   const items = listQ.data?.items ?? [];
   const total = listQ.data?.total ?? 0;
 
+  async function downloadCsv() {
+    const res = await api.raw("/export/recruits?format=csv");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "recruits.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.head}>
@@ -45,11 +56,16 @@ export function Recruits() {
           <h1 className={styles.title}>Recruits</h1>
           <p className={styles.subtitle}>Every prospect in the pipeline — advance a recruit to move the funnel.</p>
         </div>
-        {canWrite && (
-          <button className="btn btn-primary" onClick={() => setCreating(true)}>
-            Add recruit
+        <div style={{ display: "flex", gap: "var(--sp-2, .5rem)" }}>
+          <button className="btn" onClick={downloadCsv}>
+            Download CSV
           </button>
-        )}
+          {canWrite && (
+            <button className="btn btn-primary" onClick={() => setCreating(true)}>
+              Add recruit
+            </button>
+          )}
+        </div>
       </div>
 
       <div className={styles.toolbar}>
