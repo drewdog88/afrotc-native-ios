@@ -91,6 +91,17 @@ export function AppShell() {
         </nav>
 
         <div className={styles.railFoot}>
+          {user?.is_admin && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) => `${styles.link} ${isActive ? styles.linkActive : ""}`}
+            >
+              <svg className={styles.icon} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.74 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.42.34.61.22l2.39-.96c.49.38 1.03.7 1.62.94l.36 2.54c.05.24.25.42.5.42h3.84c.25 0 .45-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.19.12.47.02.61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5Z" />
+              </svg>
+              Admin
+            </NavLink>
+          )}
           <NavLink
             to="/profile"
             className={({ isActive }) => `${styles.link} ${isActive ? styles.linkActive : ""}`}
@@ -105,7 +116,14 @@ export function AppShell() {
 
       <div className={styles.main}>
         <header className={styles.topbar}>
-          <div className={styles.crumb}>{current?.label ?? "Det 695"}</div>
+          <div className={styles.crumb}>
+            {current?.label ??
+              (location.pathname.startsWith("/admin")
+                ? "Admin"
+                : location.pathname.startsWith("/profile")
+                  ? "Profile"
+                  : "Det 695")}
+          </div>
           <div className={styles.barActions}>
             <button className={styles.iconBtn} onClick={() => void logout()} title="Sign out" aria-label="Sign out">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
