@@ -31,6 +31,19 @@ class PotentialRecruit(Base, TimestampMixin):
     interests: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Public-intake fields (nullable — the authenticated create flow leaves them unset).
+    grade_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    intended_entry_term: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    intended_entry_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    consent_given_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    acknowledgment_email_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    source: Mapped[str] = mapped_column(String(20), default="manual", server_default="manual")
+    source_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+
     # Funnel stage (replaces the old free-text `status`).
     stage: Mapped[str] = mapped_column(String(20), default=RecruitStage.LEAD.value, index=True)
 

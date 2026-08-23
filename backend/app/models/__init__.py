@@ -5,12 +5,15 @@ from app.models.content import ExternalLink, RecruitmentDocument
 from app.models.enums import (
     CadetStatus,
     EventStatus,
+    GradeLevel,
+    IntendedTerm,
     RecruitStage,
     SchoolType,
     UserRole,
 )
 from app.models.followup import FollowUp, FollowUpStatus
 from app.models.recruit import PotentialRecruit, RecruitStageEvent
+from app.models.settings import IntakeSettings
 from app.models.user import ActivityLog, PasswordHistory, User
 
 __all__ = [
@@ -21,6 +24,9 @@ __all__ = [
     "ExternalLink",
     "FollowUp",
     "FollowUpStatus",
+    "GradeLevel",
+    "IntakeSettings",
+    "IntendedTerm",
     "PasswordHistory",
     "PotentialRecruit",
     "RecruitStage",

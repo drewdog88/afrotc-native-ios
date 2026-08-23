@@ -17,6 +17,34 @@ class UserRole(StrEnum):
 class SchoolType(StrEnum):
     HIGH_SCHOOL = "high_school"
     COLLEGE = "college"
+    OTHER = "other"  # GED / community college / non-standard path
+
+
+class GradeLevel(StrEnum):
+    HS_9 = "hs_9"
+    HS_10 = "hs_10"
+    HS_11 = "hs_11"
+    HS_12 = "hs_12"
+    COLLEGE_FRESHMAN = "college_freshman"
+    COLLEGE_SOPHOMORE = "college_sophomore"
+    COLLEGE_JUNIOR = "college_junior"
+    COLLEGE_SENIOR = "college_senior"
+    OTHER = "other"
+
+
+class IntendedTerm(StrEnum):
+    FALL = "fall"
+    SPRING = "spring"
+
+
+# Maps a submitted grade level to the school_type stored on the recruit.
+# OTHER stays OTHER (never silently labeled college).
+def school_type_for_grade(grade: GradeLevel) -> SchoolType:
+    if grade in (GradeLevel.HS_9, GradeLevel.HS_10, GradeLevel.HS_11, GradeLevel.HS_12):
+        return SchoolType.HIGH_SCHOOL
+    if grade == GradeLevel.OTHER:
+        return SchoolType.OTHER
+    return SchoolType.COLLEGE
 
 
 class RecruitStage(StrEnum):
