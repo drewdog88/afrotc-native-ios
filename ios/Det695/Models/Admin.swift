@@ -40,3 +40,18 @@ struct ActivityLogOut: Decodable, Identifiable {
     var details: String?
     let createdAt: String
 }
+
+/// GET /admin/intake-settings — decoded with .convertFromSnakeCase.
+struct IntakeSettingsOut: Decodable {
+    let id: Int
+    var recruiterNotificationEmail: String?
+    let ackEmailSubject: String
+    let ackEmailBody: String
+}
+
+/// PUT /admin/intake-settings — only sent keys change (backend exclude_unset).
+struct IntakeSettingsUpdate: Encodable {
+    var recruiterNotificationEmail: String?
+    var ackEmailSubject: String?
+    var ackEmailBody: String?
+}
