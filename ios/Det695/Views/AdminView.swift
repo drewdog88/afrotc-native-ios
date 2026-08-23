@@ -32,7 +32,7 @@ struct AdminView: View {
 private struct AdminConsole: View {
     let currentUserId: Int
 
-    private enum Tab: String, CaseIterable { case users, activity
+    private enum Tab: String, CaseIterable { case users, activity, settings
         var label: String { rawValue.capitalized }
     }
 
@@ -50,6 +50,7 @@ private struct AdminConsole: View {
             switch tab {
             case .users: UsersPanel(currentUserId: currentUserId, search: search)
             case .activity: ActivityPanel()
+            case .settings: IntakeSettingsPanel()
             }
         }
         .searchable(text: $search, prompt: "Search users")
@@ -393,5 +394,83 @@ private struct ActivityRow: View {
             return table
         }
         return nil
+    }
+}
+
+// MARK: - Request-info settings
+
+/// Recruiter notification email + acknowledgment email subject/body template,
+/// mirroring the web Admin page's "Request-Info Settings" panel.
+private struct IntakeSettingsPanel: View {
+    @State private var recruiterEmail = ""
+    @State private var subject = ""
+    @State private var bodyText = ""
+    @State private var loading = false
+    @State private var saving = false
+    @State private var error: String?
+    @State private var status: String?
+
+    var body: some View {
+        Form {
+            if let error { Text(error).foregroundStyle(Theme.danger) }
+            Section("Recruiter notifications") {
+                TextField("Recruiter email", text: $recruiterEmail)
+                    .textContentType(.emailAddress).keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+            }
+            Section {
+                TextField("Subject", text: $subject)
+                TextEditor(text: $bodyText).frame(minHeight: 160)
+            } header: {
+                Text("Acknowledgment email")
+            } footer: {
+                Text("Use {{first_name}} to personalize")
+            }
+            Section {
+                Button {
+                    Task { await save() }
+                } label: {
+                    if saving { ProgressView() } else { Text("Save") }
+                }
+                .disabled(saving || loading)
+                if let status { Text(status).font(.caption).foregroundStyle(.secondary) }
+            }
+        }
+        .overlay { if loading { ProgressView() } }
+        .task { await load() }
+    }
+
+    private func load() async {
+        loading = true
+        error = nil
+        defer { loading = false }
+        do {
+            let settings = try await APIClient.shared.intakeSettings()
+            recruiterEmail = settings.recruiterNotificationEmail ?? ""
+            subject = settings.ackEmailSubject
+            bodyText = settings.ackEmailBody
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func save() async {
+        saving = true
+        error = nil
+        status = nil
+        defer { saving = false }
+        let update = IntakeSettingsUpdate(
+            recruiterNotificationEmail: recruiterEmail.trimmingCharacters(in: .whitespaces).nilIfEmpty,
+            ackEmailSubject: subject.trimmingCharacters(in: .whitespaces),
+            ackEmailBody: bodyText)
+        do {
+            let updated = try await APIClient.shared.updateIntakeSettings(update)
+            recruiterEmail = updated.recruiterNotificationEmail ?? ""
+            subject = updated.ackEmailSubject
+            bodyText = updated.ackEmailBody
+            status = "Saved"
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
     }
 }

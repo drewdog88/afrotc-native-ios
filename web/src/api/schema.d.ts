@@ -38,6 +38,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/intake-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Intake Settings */
+        get: operations["get_intake_settings_api_v1_admin_intake_settings_get"];
+        /** Update Intake Settings */
+        put: operations["update_intake_settings_api_v1_admin_intake_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users": {
         parameters: {
             query?: never;
@@ -138,6 +156,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forgot Password
+         * @description Return the account's security question so the user can prove ownership.
+         *
+         *     Recovery is self-service via the security question every account carries;
+         *     there is no email dependency. A disabled account is treated as not found so
+         *     an administrator's deliberate deactivation can't be undone this way.
+         */
+        post: operations["forgot_password_api_v1_auth_forgot_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -200,6 +242,30 @@ export interface paths {
         put?: never;
         /** Refresh */
         post: operations["refresh_api_v1_auth_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Password
+         * @description Reset a password after verifying the account's security answer.
+         *
+         *     A correct answer also clears any failed-login lockout so the user can sign
+         *     in immediately. Wrong answers count toward the same lockout as failed
+         *     logins, so the question can't be brute-forced.
+         */
+        post: operations["reset_password_api_v1_auth_reset_password_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -406,6 +472,40 @@ export interface paths {
         put?: never;
         /** Complete Followup */
         post: operations["complete_followup_api_v1_followups__followup_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Intake */
+        post: operations["submit_intake_api_v1_intake_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/intake/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Intake Options */
+        get: operations["intake_options_api_v1_intake_options_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1204,6 +1304,11 @@ export interface components {
             recruit_id?: number | null;
             status?: components["schemas"]["FollowUpStatus"] | null;
         };
+        /** ForgotPasswordRequest */
+        ForgotPasswordRequest: {
+            /** Username */
+            username: string;
+        };
         /**
          * FunnelResponse
          * @description Current funnel snapshot showing recruits per stage.
@@ -1228,6 +1333,11 @@ export interface components {
             /** Stage */
             stage: string;
         };
+        /**
+         * GradeLevel
+         * @enum {string}
+         */
+        GradeLevel: "hs_9" | "hs_10" | "hs_11" | "hs_12" | "college_freshman" | "college_sophomore" | "college_junior" | "college_senior" | "other";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1257,6 +1367,78 @@ export interface components {
             /** Row */
             row: number;
         };
+        /** IntakeCreate */
+        IntakeCreate: {
+            /** Consent */
+            consent: boolean;
+            /** Current School */
+            current_school: string;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** First Name */
+            first_name: string;
+            grade_level: components["schemas"]["GradeLevel"];
+            intended_entry_term: components["schemas"]["IntendedTerm"];
+            /** Intended Entry Year */
+            intended_entry_year: number;
+            /** Last Name */
+            last_name: string;
+            /** Phone */
+            phone: string;
+            /**
+             * Turnstile Token
+             * @default
+             */
+            turnstile_token: string;
+        };
+        /** IntakeOptions */
+        IntakeOptions: {
+            /** Grade Levels */
+            grade_levels: components["schemas"]["_Option"][];
+            /** Terms */
+            terms: components["schemas"]["_Option"][];
+        };
+        /** IntakeSettingsOut */
+        IntakeSettingsOut: {
+            /** Ack Email Body */
+            ack_email_body: string;
+            /** Ack Email Subject */
+            ack_email_subject: string;
+            /** Id */
+            id: number;
+            /** Recruiter Notification Email */
+            recruiter_notification_email?: string | null;
+        };
+        /** IntakeSettingsUpdate */
+        IntakeSettingsUpdate: {
+            /** Ack Email Body */
+            ack_email_body?: string | null;
+            /** Ack Email Subject */
+            ack_email_subject?: string | null;
+            /** Recruiter Notification Email */
+            recruiter_notification_email?: string | null;
+        };
+        /** IntakeSubmitResult */
+        IntakeSubmitResult: {
+            /**
+             * Message
+             * @default Thanks! A recruiter will be in touch soon.
+             */
+            message: string;
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /**
+         * IntendedTerm
+         * @enum {string}
+         */
+        IntendedTerm: "fall" | "spring";
         /** LinkCreate */
         LinkCreate: {
             /**
@@ -1590,11 +1772,25 @@ export interface components {
             /** Refresh Token */
             refresh_token: string;
         };
+        /** ResetPasswordRequest */
+        ResetPasswordRequest: {
+            /** New Password */
+            new_password: string;
+            /** Secret Answer */
+            secret_answer: string;
+            /** Username */
+            username: string;
+        };
         /**
          * SchoolType
          * @enum {string}
          */
-        SchoolType: "high_school" | "college";
+        SchoolType: "high_school" | "college" | "other";
+        /** SecretQuestionOut */
+        SecretQuestionOut: {
+            /** Secret Question */
+            secret_question: string;
+        };
         /** StageChange */
         StageChange: {
             /** Note */
@@ -1747,6 +1943,13 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** _Option */
+        _Option: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1798,6 +2001,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_ActivityLogOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_intake_settings_api_v1_admin_intake_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeSettingsOut"];
+                };
+            };
+        };
+    };
+    update_intake_settings_api_v1_admin_intake_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IntakeSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeSettingsOut"];
                 };
             };
             /** @description Validation Error */
@@ -2041,6 +2297,39 @@ export interface operations {
             };
         };
     };
+    forgot_password_api_v1_auth_forgot_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretQuestionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     login_api_v1_auth_login_post: {
         parameters: {
             query?: never;
@@ -2132,6 +2421,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccessToken"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_password_api_v1_auth_reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
                 };
             };
             /** @description Validation Error */
@@ -2876,6 +3198,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_intake_api_v1_intake_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IntakeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeSubmitResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    intake_options_api_v1_intake_options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeOptions"];
                 };
             };
         };

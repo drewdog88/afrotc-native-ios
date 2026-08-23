@@ -6,13 +6,15 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import Pagination, pagination, require_admin
+from app.bootstrap import bootstrap_intake_settings
 from app.core.database import get_db
 from app.core.security import hash_password
-from app.models import ActivityLog, User
+from app.models import ActivityLog, IntakeSettings, User
 from app.models.enums import UserRole
 from app.schemas.admin import ActivityLogOut, AdminUserCreate, AdminUserUpdate
 from app.schemas.auth import UserOut
 from app.schemas.common import Page
+from app.schemas.intake import IntakeSettingsOut, IntakeSettingsUpdate
 from app.services.crud import CRUDBase
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -120,3 +122,36 @@ def list_activity(
     rows = list(db.scalars(stmt.offset(page.skip).limit(page.limit)).all())
 
     return Page(items=rows, total=total, skip=page.skip, limit=page.limit)
+
+
+def _settings_row(db: Session) -> IntakeSettings:
+    row = db.get(IntakeSettings, 1)
+    if row is None:
+        bootstrap_intake_settings(db)
+        row = db.get(IntakeSettings, 1)
+    return row
+
+
+@router.get("/intake-settings", response_model=IntakeSettingsOut)
+def get_intake_settings(
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> IntakeSettings:
+    return _settings_row(db)
+
+
+@router.put("/intake-settings", response_model=IntakeSettingsOut)
+def update_intake_settings(
+    body: IntakeSettingsUpdate,
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> IntakeSettings:
+    row = _settings_row(db)
+    data = body.model_dump(exclude_unset=True)
+    if "recruiter_notification_email" in data and data["recruiter_notification_email"] is not None:
+        data["recruiter_notification_email"] = str(data["recruiter_notification_email"])
+    for key, value in data.items():
+        setattr(row, key, value)
+    db.commit()
+    db.refresh(row)
+    return row

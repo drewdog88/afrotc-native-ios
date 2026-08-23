@@ -47,6 +47,19 @@ def _format_value(val):
     return val
 
 
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(val):
+    """Neutralize CSV formula injection (Excel/Sheets execute leading =, +, -, @,
+    tab, or CR as a formula). Public-attacker-controlled fields (name/school from
+    the intake form) can carry these; prefix with a single quote to defang.
+    """
+    if isinstance(val, str) and val.startswith(_FORMULA_PREFIXES):
+        return "'" + val
+    return val
+
+
 def _get_dataframe(entity: EntityType, db: Session) -> pd.DataFrame:
     """Build a pandas DataFrame from entity rows."""
     model = _ENTITY_MAP[entity]
@@ -153,7 +166,9 @@ def export_entity(
 
     if format == "csv":
         buffer = BytesIO()
-        df.to_csv(buffer, index=False, encoding="utf-8")
+        # Sanitize against formula injection before writing — recruits' fields
+        # (name/school) come from the public, unauthenticated intake form.
+        df.map(_csv_safe).to_csv(buffer, index=False, encoding="utf-8")
         buffer.seek(0)
         return StreamingResponse(
             buffer,

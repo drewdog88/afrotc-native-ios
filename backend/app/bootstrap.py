@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import hash_password
-from app.models import User
+from app.models import IntakeSettings, User
 from app.models.enums import UserRole
 
 logger = logging.getLogger("afrotc695.bootstrap")
@@ -46,3 +46,13 @@ def bootstrap_admin(db: Session) -> None:
     db.commit()
     logger.info("Bootstrapped admin user '%s' (must change password on first login).",
                 settings.bootstrap_admin_username)
+
+
+def bootstrap_intake_settings(db: Session) -> None:
+    """Ensure the single intake_settings row (id=1) exists, with defaults."""
+    existing = db.get(IntakeSettings, 1)
+    if existing is not None:
+        return
+    db.add(IntakeSettings(id=1))
+    db.commit()
+    logger.info("Seeded default intake_settings row.")

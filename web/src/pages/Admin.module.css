@@ -336,3 +336,10 @@
     display: none;
   }
 }
+
+/* ---- Request-Info settings ---- */
+.templateArea {
+  width: 100%;
+  min-height: 180px;
+  font-family: inherit;
+}

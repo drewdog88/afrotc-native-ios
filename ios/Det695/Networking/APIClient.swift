@@ -319,6 +319,16 @@ actor APIClient {
         return try await requestJSON("/admin/activity", method: "GET", bodyData: nil, authed: true, query: q)
     }
 
+    func intakeSettings() async throws -> IntakeSettingsOut {
+        try await requestJSON("/admin/intake-settings", method: "GET", bodyData: nil, authed: true)
+    }
+
+    @discardableResult
+    func updateIntakeSettings(_ body: IntakeSettingsUpdate) async throws -> IntakeSettingsOut {
+        try await requestJSON("/admin/intake-settings", method: "PUT",
+                              bodyData: try encoder.encode(body), authed: true)
+    }
+
     // MARK: - Mutations
 
     // Recruits
