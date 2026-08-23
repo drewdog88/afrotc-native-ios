@@ -20,6 +20,11 @@ export type RecruitPage = Schemas["Page_RecruitOut_"];
 export type StageChange = Schemas["StageChange"];
 export type StageEventOut = Schemas["StageEventOut"];
 export type RecruitStage = Schemas["RecruitStage"];
+export type IntakeCreate = Schemas["IntakeCreate"];
+export type IntakeOptions = Schemas["IntakeOptions"];
+export type IntakeSubmitResult = Schemas["IntakeSubmitResult"];
+export type IntakeSettingsOut = Schemas["IntakeSettingsOut"];
+export type IntakeSettingsUpdate = Schemas["IntakeSettingsUpdate"];
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api/v1";
 const ACCESS_KEY = "det695.access";
@@ -150,4 +155,12 @@ export const api = {
     tokens.clear();
   },
   me: () => request<UserOut>("/auth/me"),
+
+  // Intake form endpoints (public, unauthenticated)
+  intakeOptions: () => request<IntakeOptions>("/intake/options", { auth: false }),
+  submitIntake: (body: IntakeCreate) =>
+    request<IntakeSubmitResult>("/intake", { method: "POST", auth: false, body }),
+  getIntakeSettings: () => request<IntakeSettingsOut>("/admin/intake-settings"),
+  updateIntakeSettings: (body: IntakeSettingsUpdate) =>
+    request<IntakeSettingsOut>("/admin/intake-settings", { method: "PUT", body }),
 };
