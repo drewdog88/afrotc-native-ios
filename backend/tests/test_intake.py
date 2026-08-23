@@ -50,3 +50,21 @@ def test_build_recruiter_notification_includes_key_fields() -> None:
     assert "Sam Lee" in body
     assert "sam@example.com" in body
     assert "Grant HS" in body
+
+
+def test_verify_turnstile_dev_mode_passes(monkeypatch) -> None:
+    from app.core.config import settings
+    from app.services import spam
+    monkeypatch.setattr(settings, "turnstile_secret_key", "", raising=False)
+    assert spam.verify_turnstile("anything", "203.0.113.1") is True
+
+
+def test_client_ip_prefers_forwarded_for() -> None:
+    from app.services.spam import client_ip
+
+    class _Req:
+        headers = {"x-forwarded-for": "198.51.100.9, 10.0.0.1"}
+        class client:  # noqa: N801
+            host = "10.0.0.1"
+
+    assert client_ip(_Req()) == "198.51.100.9"
