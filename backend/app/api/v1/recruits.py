@@ -9,7 +9,7 @@ we seed a baseline event (from_stage=None) so the funnel has a starting point.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -24,6 +24,7 @@ from app.schemas.recruit import (
     StageChange,
     StageEventOut,
 )
+from app.services.activity import record_activity
 from app.services.crud import CRUDBase
 
 router = APIRouter(prefix="/recruits", tags=["recruits"])
@@ -72,6 +73,7 @@ def get_recruit(
 @router.post("", response_model=RecruitOut, status_code=status.HTTP_201_CREATED)
 def create_recruit(
     body: RecruitCreate,
+    request: Request,
     user: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> PotentialRecruit:
@@ -88,6 +90,15 @@ def create_recruit(
     )
     db.commit()
     db.refresh(recruit)
+    record_activity(
+        db,
+        user=user,
+        action="CREATE",
+        table_name="potential_recruit",
+        record_id=recruit.id,
+        record_description=f"{recruit.first_name} {recruit.last_name}",
+        request=request,
+    )
     return recruit
 
 
@@ -95,27 +106,55 @@ def create_recruit(
 def update_recruit(
     recruit_id: int,
     body: RecruitUpdate,
-    _: User = Depends(require_write),
+    request: Request,
+    actor: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> PotentialRecruit:
     recruit = _get_or_404(db, recruit_id)
-    return crud.update(db, recruit, body.model_dump(exclude_unset=True))
+    data = body.model_dump(exclude_unset=True)
+    changed_fields = sorted(data.keys())  # field names only — never values
+    updated = crud.update(db, recruit, data)
+    record_activity(
+        db,
+        user=actor,
+        action="UPDATE",
+        table_name="potential_recruit",
+        record_id=updated.id,
+        record_description=f"{updated.first_name} {updated.last_name}",
+        details="changed: " + ", ".join(changed_fields) if changed_fields else None,
+        request=request,
+    )
+    return updated
 
 
 @router.delete("/{recruit_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_recruit(
     recruit_id: int,
-    _: User = Depends(require_write),
+    request: Request,
+    actor: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     recruit = _get_or_404(db, recruit_id)
+    # Capture identity before the row is gone.
+    deleted_id = recruit.id
+    deleted_name = f"{recruit.first_name} {recruit.last_name}"
     crud.delete(db, recruit)
+    record_activity(
+        db,
+        user=actor,
+        action="DELETE",
+        table_name="potential_recruit",
+        record_id=deleted_id,
+        record_description=deleted_name,
+        request=request,
+    )
 
 
 @router.post("/{recruit_id}/stage", response_model=RecruitOut)
 def change_stage(
     recruit_id: int,
     body: StageChange,
+    request: Request,
     user: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> PotentialRecruit:
@@ -126,6 +165,7 @@ def change_stage(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Recruit is already at stage '{new_stage}'",
         )
+    old_stage = recruit.stage
     db.add(
         RecruitStageEvent(
             recruit_id=recruit.id,
@@ -138,6 +178,16 @@ def change_stage(
     recruit.stage = new_stage
     db.commit()
     db.refresh(recruit)
+    record_activity(
+        db,
+        user=user,
+        action="STAGE_CHANGE",
+        table_name="potential_recruit",
+        record_id=recruit.id,
+        record_description=f"{recruit.first_name} {recruit.last_name}",
+        details=f"{old_stage} → {new_stage}",
+        request=request,
+    )
     return recruit
 
 

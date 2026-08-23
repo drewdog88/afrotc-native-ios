@@ -25,6 +25,10 @@ class AdminUserCreate(BaseModel):
 
 
 class AdminUserUpdate(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
     role: UserRole | None = None
     is_active: bool | None = None
     is_locked: bool | None = None
