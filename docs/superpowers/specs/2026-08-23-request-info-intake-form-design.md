@@ -81,13 +81,23 @@ class IntendedTerm(StrEnum):
     SPRING = "spring"
 ```
 
+Extend the existing `SchoolType` enum with one new member so `OTHER`-grade
+leads have a truthful school type (the column is `NOT NULL`):
+
+```python
+class SchoolType(StrEnum):
+    HIGH_SCHOOL = "high_school"
+    COLLEGE = "college"
+    OTHER = "other"  # GED / community college / non-standard path
+```
+
 New columns on `PotentialRecruit` (`app/models/recruit.py`), all
 nullable/defaulted so the existing authenticated `create_recruit` flow and
 existing rows are unaffected:
 
 | Column | Type | Notes |
 |---|---|---|
-| `grade_level` | `String(20)`, nullable | values from `GradeLevel`; `school_type` is derived server-side (`HS_*` → `high_school`, else `college`) so the form asks one question, not two |
+| `grade_level` | `String(20)`, nullable | values from `GradeLevel`; `school_type` is derived server-side: `HS_*` → `high_school`, `COLLEGE_*` → `college`, `OTHER` → `SchoolType.OTHER` (new enum value — GED / community-college / non-standard paths must not be silently mislabeled as college; the existing `school_type` column is `NOT NULL` with a default, so a real value is required, hence the new enum member rather than null). The form asks one grade question, not a separate school-type question |
 | `intended_entry_term` | `String(10)`, nullable | `fall` / `spring` |
 | `intended_entry_year` | `Integer`, nullable | |
 | `consent_given_at` | `DateTime(timezone=True)`, nullable | stamped when the applicant checks the contact-consent box; `null` = never given |
@@ -134,10 +144,15 @@ Handler flow:
 
 1. Verify `turnstile_token` against Cloudflare's siteverify API (secret key
    from new `settings.turnstile_secret_key`). Failure → `400`, no DB write.
-2. Rate-limit: count `potential_recruit` rows with `source_ip = <request IP>`
-   and `created_at` in the last hour; if over a small threshold (e.g. 5),
-   reject `429`. No new infra — reuses Postgres, matching this repo's existing
-   "no Redis / no local fallback" posture.
+2. Rate-limit — **loose backstop only; Turnstile is the primary bot defense.**
+   Count `potential_recruit` rows with `source_ip = <request IP>` and
+   `created_at` in the last hour; reject `429` only above a deliberately high
+   threshold (e.g. **30/hour**). This is set well above any real recruiting
+   event: a table at a school fair or a class signing up on shared school
+   WiFi all share one NAT'd IP, so a low per-hour cap would reject legitimate
+   recruits — exactly the audience we want. Turnstile stops the bots; this cap
+   only catches a runaway flood. No new infra — reuses Postgres, matching this
+   repo's "no Redis / no local fallback" posture.
 3. Create `PotentialRecruit` (`stage=LEAD`, `source="public_intake_form"`,
    `consent_given_at=now`, `source_ip=<request IP>`); seed baseline
    `RecruitStageEvent` (`changed_by_id=None`, already nullable).
@@ -148,8 +163,13 @@ Handler flow:
    internal notification email via Resend. Missing config or send failure:
    log and continue.
 6. Send the applicant acknowledgment email using
-   `ack_email_subject`/`ack_email_body` (substituting `{{first_name}}`), then
-   stamp `acknowledgment_email_sent_at`. Same best-effort handling.
+   `ack_email_subject`/`ack_email_body`, substituting `{{first_name}}`, then
+   stamp `acknowledgment_email_sent_at`. Same best-effort handling. **The email
+   is plain text** (not HTML): it keeps the admin template editor simple,
+   sidesteps HTML-injection from the applicant-controlled `first_name`, and
+   still supports links (mail clients auto-linkify URLs). Substituted values
+   are inserted as-is into plain text — no markup to escape. Both emails are
+   sent from `settings.resend_from_email`.
 7. Return `201` with a minimal confirmation payload — no internal IDs or
    pipeline/stage info leaked publicly.
 
@@ -165,8 +185,9 @@ New service module `app/services/email.py` wrapping the Resend SDK — one
 function per email type, used only by `intake.py`.
 
 New `Settings` fields (`app/core/config.py`): `resend_api_key: str = ""`,
-`turnstile_secret_key: str = ""`. Turnstile's *site key* (public) lives in the
-web app's Vite env, not backend settings.
+`resend_from_email: str = ""` (must be an address on a domain verified in
+Resend — see Rollout), `turnstile_secret_key: str = ""`. Turnstile's *site key*
+(public) lives in the web app's Vite env, not backend settings.
 
 ### Two architectural choices made explicitly
 
@@ -192,6 +213,14 @@ web app's Vite env, not backend settings.
 - Form fields: first/last name, email, phone, current school (text),
   grade-level select, term+year select, consent checkbox, Turnstile widget,
   submit. Fetches `/api/v1/intake/options` on mount for the two dropdowns.
+- **CSP change required (`vercel.json`).** The current Content-Security-Policy
+  is `script-src 'self'` with no `frame-src` (so frames fall back to
+  `default-src 'self'`). Cloudflare Turnstile loads a script from and injects
+  an iframe from `https://challenges.cloudflare.com`; under the current policy
+  **both are blocked and the widget silently fails to render.** Add
+  `https://challenges.cloudflare.com` to both `script-src` and a new
+  `frame-src` directive. This is a required task, not optional polish — the
+  form is unusable without it.
 - Success state replaces the form with a thank-you message in place (no
   redirect — there's no dashboard to send an unauthenticated visitor to).
 - Displays the existing static logo asset (`web/src/assets/det695-patch.png`
@@ -229,7 +258,10 @@ web app's Vite env, not backend settings.
   emails attempted (Resend client mocked); missing consent → `422`; failed
   Turnstile → `400` + no DB row; rate limit exceeded → `429`; email-send
   failure → still `201` (durability guarantee), `acknowledgment_email_sent_at`
-  left `null`.
+  left `null`. Also: `{{first_name}}` substitution renders correctly in the
+  plain-text ack body; `grade_level=OTHER` → `school_type="other"` (not
+  `college`); `grade_level=hs_11` → `high_school`; `grade_level=college_junior`
+  → `college`.
 - Extend `backend/tests/test_admin.py` for the new settings `GET`/`PUT`
   (admin-only, `403` for non-admins).
 - iOS: follow whatever existing verification pattern covers `AdminView`
@@ -241,9 +273,16 @@ web app's Vite env, not backend settings.
 2. **Run the backup/restore drill to confirm it still succeeds against the
    new schema** before considering the migration done.
 3. Turnstile: script what's scriptable via Cloudflare's API/CLI; walk through
-   whatever genuinely requires the dashboard UI at implementation time.
+   whatever genuinely requires the dashboard UI at implementation time. Update
+   `vercel.json` CSP (`script-src` + new `frame-src`) to allow
+   `https://challenges.cloudflare.com`, and verify the widget actually renders
+   on the deployed page (not just locally).
 4. Resend: net-new account/integration; no existing email infrastructure in
-   this codebase to migrate from.
+   this codebase to migrate from. **A sending domain must be verified in
+   Resend (DNS records) before any email will send**, and `resend_from_email`
+   must be an address on that verified domain — flag this as a setup
+   prerequisite, not something discoverable only when the first email
+   silently fails.
 
 ## Files
 
@@ -262,8 +301,11 @@ web app's Vite env, not backend settings.
 - `backend/app/models/recruit.py` (new columns)
 - `backend/app/api/v1/admin.py` (settings GET/PUT)
 - `backend/app/api/v1/router.py` (mount `intake.router`)
-- `backend/app/core/config.py` (`resend_api_key`, `turnstile_secret_key`)
+- `backend/app/core/config.py` (`resend_api_key`, `resend_from_email`,
+  `turnstile_secret_key`)
 - `backend/app/bootstrap.py` (seed default `IntakeSettings` row)
+- `vercel.json` (CSP: allow `https://challenges.cloudflare.com` in
+  `script-src` + new `frame-src`)
 - `web/src/main.tsx` (new public route)
 - `web/src/lib/api.ts` (`submitIntake`)
 - `web/src/pages/Admin.tsx`, `Admin.module.css` (new settings section)
