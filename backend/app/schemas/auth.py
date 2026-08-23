@@ -61,6 +61,7 @@ class UserOut(ORMModel):
     phone: str | None = None
     role: str
     is_active: bool
+    is_locked: bool
     is_admin: bool
     force_password_change: bool
     is_2fa_active: bool

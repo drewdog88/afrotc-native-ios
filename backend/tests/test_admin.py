@@ -99,6 +99,34 @@ def test_admin_password_reset_forces_change_at_next_login(
     assert resp.json()["force_password_change"] is True
 
 
+def test_admin_can_see_and_unlock_a_locked_user(
+    client: TestClient, auth_headers: dict[str, str], make_user: Callable[..., User]
+) -> None:
+    from tests.conftest import TestingSessionLocal
+
+    user = make_user("lockedout")
+    # Simulate a lockout directly; the failed-login path isn't under test here.
+    with TestingSessionLocal() as db:
+        row = db.get(User, user.id)
+        row.is_locked = True
+        row.failed_login_attempts = 5
+        db.commit()
+
+    # The admin listing surfaces the locked state.
+    listing = client.get("/api/v1/admin/users", headers=auth_headers).json()
+    locked = next(u for u in listing["items"] if u["id"] == user.id)
+    assert locked["is_locked"] is True
+
+    # Unlocking clears the flag (and the attempt counter).
+    resp = client.patch(
+        f"/api/v1/admin/users/{user.id}",
+        headers=auth_headers,
+        json={"is_locked": False, "failed_login_attempts": 0},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["is_locked"] is False
+
+
 def test_admin_edit_duplicate_email_returns_409(
     client: TestClient, auth_headers: dict[str, str], make_user: Callable[..., User]
 ) -> None:
