@@ -460,7 +460,7 @@ private struct IntakeSettingsPanel: View {
         status = nil
         defer { saving = false }
         let update = IntakeSettingsUpdate(
-            recruiterNotificationEmail: recruiterEmail.trimmingCharacters(in: .whitespaces),
+            recruiterNotificationEmail: recruiterEmail.trimmingCharacters(in: .whitespaces).nilIfEmpty,
             ackEmailSubject: subject.trimmingCharacters(in: .whitespaces),
             ackEmailBody: bodyText)
         do {
