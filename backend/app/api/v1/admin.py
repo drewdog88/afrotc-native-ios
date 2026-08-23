@@ -1,7 +1,7 @@
 """Admin endpoints: user management + activity log (admin-only)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,7 @@ from app.schemas.admin import ActivityLogOut, AdminUserCreate, AdminUserUpdate
 from app.schemas.auth import UserOut
 from app.schemas.common import Page
 from app.schemas.intake import IntakeSettingsOut, IntakeSettingsUpdate
+from app.services.activity import record_activity
 from app.services.crud import CRUDBase
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -53,7 +54,8 @@ def list_users(
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def create_user(
     body: AdminUserCreate,
-    _: User = Depends(require_admin),
+    request: Request,
+    actor: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> User:
     data = body.model_dump(exclude={"secret_answer"})
@@ -62,30 +64,69 @@ def create_user(
     data["force_password_change"] = True
     # Remove password from dict since we've converted it to password_hash
     data.pop("password", None)
-    return crud.create(db, data)
+    created = crud.create(db, data)
+    record_activity(
+        db,
+        user=actor,
+        action="CREATE",
+        table_name="users",
+        record_id=created.id,
+        record_description=created.username,
+        request=request,
+    )
+    return created
 
 
 @router.patch("/users/{user_id}", response_model=UserOut)
 def update_user(
     user_id: int,
     body: AdminUserUpdate,
-    _: User = Depends(require_admin),
+    request: Request,
+    actor: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> User:
     user = _get_or_404(db, user_id)
     data = body.model_dump(exclude_unset=True)
+    changed_fields = sorted(data.keys())  # field names only — never values
 
-    # Hash password if provided
-    if "password" in data and data["password"] is not None:
+    # Reject an email already taken by a different user (clean 409 instead of
+    # a raw DB integrity error from the unique constraint).
+    if data.get("email") is not None:
+        data["email"] = str(data["email"])
+        clash = db.scalar(
+            select(User).where(User.email == data["email"], User.id != user.id)
+        )
+        if clash is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already in use by another user",
+            )
+
+    # Hash password if provided; an admin-set password is temporary, so force
+    # the user to choose their own at next login.
+    if data.get("password") is not None:
         data["password_hash"] = hash_password(data.pop("password"))
+        data["force_password_change"] = True
 
-    return crud.update(db, user, data)
+    updated = crud.update(db, user, data)
+    record_activity(
+        db,
+        user=actor,
+        action="UPDATE",
+        table_name="users",
+        record_id=updated.id,
+        record_description=updated.username,
+        details="changed: " + ", ".join(changed_fields) if changed_fields else None,
+        request=request,
+    )
+    return updated
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     user_id: int,
-    _: User = Depends(require_admin),
+    request: Request,
+    actor: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> None:
     user = _get_or_404(db, user_id)
@@ -100,7 +141,18 @@ def delete_user(
             detail="Cannot delete the last admin user",
         )
 
+    # Capture identity before the row is gone.
+    deleted_id, deleted_username = user.id, user.username
     crud.delete(db, user)
+    record_activity(
+        db,
+        user=actor,
+        action="DELETE",
+        table_name="users",
+        record_id=deleted_id,
+        record_description=deleted_username,
+        request=request,
+    )
 
 
 @router.get("/activity", response_model=Page[ActivityLogOut])
@@ -143,15 +195,27 @@ def get_intake_settings(
 @router.put("/intake-settings", response_model=IntakeSettingsOut)
 def update_intake_settings(
     body: IntakeSettingsUpdate,
-    _: User = Depends(require_admin),
+    request: Request,
+    actor: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> IntakeSettings:
     row = _settings_row(db)
     data = body.model_dump(exclude_unset=True)
+    changed_fields = sorted(data.keys())  # field names only — never values
     if "recruiter_notification_email" in data and data["recruiter_notification_email"] is not None:
         data["recruiter_notification_email"] = str(data["recruiter_notification_email"])
     for key, value in data.items():
         setattr(row, key, value)
     db.commit()
     db.refresh(row)
+    record_activity(
+        db,
+        user=actor,
+        action="UPDATE",
+        table_name="intake_settings",
+        record_id=row.id,
+        record_description="Request-Info settings",
+        details="changed: " + ", ".join(changed_fields) if changed_fields else None,
+        request=request,
+    )
     return row

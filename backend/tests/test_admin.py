@@ -62,3 +62,60 @@ def test_can_delete_a_non_admin_user(
     victim = make_user("expendable")
     resp = client.delete(f"/api/v1/admin/users/{victim.id}", headers=auth_headers)
     assert resp.status_code == 204
+
+
+def test_admin_edits_user_profile_fields(
+    client: TestClient, auth_headers: dict[str, str], make_user: Callable[..., User]
+) -> None:
+    user = make_user("editme")
+    resp = client.patch(
+        f"/api/v1/admin/users/{user.id}",
+        headers=auth_headers,
+        json={
+            "first_name": "Edited",
+            "last_name": "Person",
+            "email": "edited.person@example.com",
+            "phone": "555-0100",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["first_name"] == "Edited"
+    assert body["last_name"] == "Person"
+    assert body["email"] == "edited.person@example.com"
+    assert body["phone"] == "555-0100"
+
+
+def test_admin_password_reset_forces_change_at_next_login(
+    client: TestClient, auth_headers: dict[str, str], make_user: Callable[..., User]
+) -> None:
+    user = make_user("resetme", force_password_change=False)
+    resp = client.patch(
+        f"/api/v1/admin/users/{user.id}",
+        headers=auth_headers,
+        json={"password": "BrandNewPass123!"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["force_password_change"] is True
+
+
+def test_admin_edit_duplicate_email_returns_409(
+    client: TestClient, auth_headers: dict[str, str], make_user: Callable[..., User]
+) -> None:
+    alice = make_user("alice")
+    # Give alice a real (validatable) email so bob can collide with it.
+    assert (
+        client.patch(
+            f"/api/v1/admin/users/{alice.id}",
+            headers=auth_headers,
+            json={"email": "shared@example.com"},
+        ).status_code
+        == 200
+    )
+    bob = make_user("bob")
+    resp = client.patch(
+        f"/api/v1/admin/users/{bob.id}",
+        headers=auth_headers,
+        json={"email": "shared@example.com"},
+    )
+    assert resp.status_code == 409, resp.text

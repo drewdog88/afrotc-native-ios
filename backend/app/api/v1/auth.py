@@ -10,11 +10,12 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pyotp
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.services.activity import record_activity
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import (
@@ -78,7 +79,7 @@ def _apply_new_password(db: Session, user: User, new_password: str) -> None:
 
 
 @router.post("/login", response_model=TokenPair)
-def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenPair:
+def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -> TokenPair:
     user = _find_user(db, body.username)
     if user is None:
         raise _BAD_CREDS
@@ -112,6 +113,16 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenPair:
     # Success — reset counters.
     user.failed_login_attempts = 0
     db.commit()
+
+    record_activity(
+        db,
+        user=user,
+        action="LOGIN",
+        table_name="users",
+        record_id=user.id,
+        record_description=user.username,
+        request=request,
+    )
 
     subject = str(user.id)
     return TokenPair(
