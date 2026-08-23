@@ -157,3 +157,55 @@ def test_other_grade_maps_to_other_school_type(client, monkeypatch) -> None:
     assert resp.status_code == 201
     with TestingSessionLocal() as db:
         assert db.query(PotentialRecruit).one().school_type == "other"
+
+
+def test_overlength_current_school_is_422_not_500(client, monkeypatch) -> None:
+    _emails(monkeypatch)
+    bad = {**_VALID, "current_school": "A" * 101}
+    resp = client.post("/api/v1/intake", json=bad)
+    assert resp.status_code == 422
+    with TestingSessionLocal() as db:
+        assert db.query(PotentialRecruit).count() == 0
+
+
+def test_overlength_first_name_is_422_not_500(client, monkeypatch) -> None:
+    _emails(monkeypatch)
+    bad = {**_VALID, "first_name": "A" * 51}
+    resp = client.post("/api/v1/intake", json=bad)
+    assert resp.status_code == 422
+    with TestingSessionLocal() as db:
+        assert db.query(PotentialRecruit).count() == 0
+
+
+def test_ack_timestamp_commit_failure_still_returns_201(client, monkeypatch) -> None:
+    # The lead-creation commit (source of truth) already succeeded by the time we
+    # get here; a failure while stamping/committing the best-effort ack timestamp
+    # must never fail the accepted submission (module docstring contract).
+    import app.api.v1.intake as intake_mod
+    from app.core.security import now_utc as real_now_utc
+
+    _emails(monkeypatch)  # send_email succeeds, so we reach the ack-stamp branch
+
+    calls = {"n": 0}
+
+    def _flaky_now_utc():
+        calls["n"] += 1
+        if calls["n"] == 2:  # 1st call = consent_given_at, 2nd = ack timestamp
+            raise RuntimeError("boom")
+        return real_now_utc()
+
+    monkeypatch.setattr(intake_mod, "now_utc", _flaky_now_utc)
+    resp = client.post("/api/v1/intake", json=_VALID)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["ok"] is True
+    with TestingSessionLocal() as db:
+        r = db.query(PotentialRecruit).one()
+        assert r.acknowledgment_email_sent_at is None  # ack-stamp commit never landed
+
+
+def test_overlength_email_is_422(client, monkeypatch) -> None:
+    # Confirms pydantic enforces max_length on EmailStr (verified directly in dev too).
+    _emails(monkeypatch)
+    bad = {**_VALID, "email": ("a" * 115) + "@example.com"}
+    resp = client.post("/api/v1/intake", json=bad)
+    assert resp.status_code == 422

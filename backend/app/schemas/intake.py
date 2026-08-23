@@ -1,18 +1,18 @@
 """Public request-info intake schemas."""
 from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.models.enums import GradeLevel, IntendedTerm
 from app.schemas.common import ORMModel
 
 
 class IntakeCreate(BaseModel):
-    first_name: str
-    last_name: str
-    email: EmailStr
-    phone: str
-    current_school: str
+    first_name: str = Field(max_length=50)
+    last_name: str = Field(max_length=50)
+    email: EmailStr = Field(max_length=120)
+    phone: str = Field(max_length=20)
+    current_school: str = Field(max_length=100)
     grade_level: GradeLevel
     intended_entry_term: IntendedTerm
     intended_entry_year: int

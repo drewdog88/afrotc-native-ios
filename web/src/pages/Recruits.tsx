@@ -24,6 +24,7 @@ export function Recruits() {
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const params = new URLSearchParams({ limit: "200" });
   if (search.trim()) params.set("search", search.trim());
@@ -39,14 +40,21 @@ export function Recruits() {
   const total = listQ.data?.total ?? 0;
 
   async function downloadCsv() {
-    const res = await api.raw("/export/recruits?format=csv");
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "recruits.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    setDownloadError(null);
+    let url: string | null = null;
+    try {
+      const res = await api.raw("/export/recruits?format=csv");
+      const blob = await res.blob();
+      url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "recruits.csv";
+      a.click();
+    } catch (err) {
+      setDownloadError(err instanceof ApiError ? err.message : "Couldn't download the CSV.");
+    } finally {
+      if (url) URL.revokeObjectURL(url);
+    }
   }
 
   return (
@@ -67,6 +75,8 @@ export function Recruits() {
           )}
         </div>
       </div>
+
+      {downloadError && <div className={styles.formError}>{downloadError}</div>}
 
       <div className={styles.toolbar}>
         <input

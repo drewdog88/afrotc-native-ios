@@ -98,3 +98,26 @@ def test_unknown_entity_is_422(client: TestClient, auth_headers: dict[str, str])
 def test_unknown_format_is_422(client: TestClient, auth_headers: dict[str, str]) -> None:
     resp = client.get("/api/v1/export/recruits", headers=auth_headers, params={"format": "yaml"})
     assert resp.status_code == 422
+
+
+def test_csv_export_neutralizes_formula_injection(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    # A public-intake-controlled field starting with "=" must not reach Excel/Sheets
+    # as a live formula — it should be defanged with a leading single quote.
+    client.post(
+        "/api/v1/recruits",
+        headers=auth_headers,
+        json={
+            "first_name": "=SUM(1+1)",
+            "last_name": "Rivers",
+            "email": "formula@example.com",
+            "current_school": "Ballard High School",
+            "school_type": "high_school",
+        },
+    )
+    resp = client.get("/api/v1/export/recruits", headers=auth_headers, params={"format": "csv"})
+    assert resp.status_code == 200
+    body = resp.text
+    assert "'=SUM(1+1)" in body
+    assert not any(line.startswith("=SUM") for line in body.splitlines())

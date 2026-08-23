@@ -6,6 +6,8 @@ of truth; email/Turnstile-adjacent failures never fail an accepted submission.
 """
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
@@ -17,6 +19,8 @@ from app.models.settings import DEFAULT_ACK_BODY, DEFAULT_ACK_SUBJECT
 from app.schemas.intake import IntakeCreate, IntakeOptions, IntakeSubmitResult, _Option
 from app.services.email import build_recruiter_notification, render_ack, send_email
 from app.services.spam import client_ip, too_many_from_ip, verify_turnstile
+
+logger = logging.getLogger("afrotc695.intake")
 
 router = APIRouter(prefix="/intake", tags=["intake"])
 
@@ -97,7 +101,16 @@ def submit_intake(
     ack_body_tmpl = settings_row.ack_email_body if settings_row else DEFAULT_ACK_BODY
     subj, body_text = render_ack(ack_subject_tmpl, ack_body_tmpl, recruit.first_name)
     if send_email(recruit.email, subj, body_text):
-        recruit.acknowledgment_email_sent_at = now_utc()
-        db.commit()
+        try:
+            recruit.acknowledgment_email_sent_at = now_utc()
+            db.commit()
+        except Exception:
+            # The lead is already durably saved (commit above). Failing to persist
+            # this best-effort ack timestamp must never fail the accepted submission.
+            db.rollback()
+            logger.warning(
+                "Failed to record acknowledgment_email_sent_at for recruit %s",
+                recruit.id, exc_info=True,
+            )
 
     return IntakeSubmitResult()
