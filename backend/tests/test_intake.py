@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from app.models import IntakeSettings, PotentialRecruit
 from app.models.enums import GradeLevel, IntendedTerm, SchoolType, school_type_for_grade
+from app.services.email import build_recruiter_notification, render_ack
 
 
 def test_new_recruit_columns_exist() -> None:
@@ -24,3 +25,28 @@ def test_school_type_derivation() -> None:
     assert school_type_for_grade(GradeLevel.HS_11) == SchoolType.HIGH_SCHOOL
     assert school_type_for_grade(GradeLevel.COLLEGE_JUNIOR) == SchoolType.COLLEGE
     assert school_type_for_grade(GradeLevel.OTHER) == SchoolType.OTHER
+
+
+def test_render_ack_substitutes_first_name() -> None:
+    subject, body = render_ack("Hi {{first_name}}", "Hello {{first_name}}!", "Dana")
+    assert subject == "Hi Dana"
+    assert body == "Hello Dana!"
+
+
+def test_render_ack_plain_text_is_not_html_escaped() -> None:
+    # Plain text: whatever the applicant typed is inserted verbatim (no markup context).
+    _, body = render_ack("s", "Hi {{first_name}}", "<b>x</b>")
+    assert body == "Hi <b>x</b>"
+
+
+def test_build_recruiter_notification_includes_key_fields() -> None:
+    from app.models import PotentialRecruit
+    r = PotentialRecruit(
+        first_name="Sam", last_name="Lee", email="sam@example.com", phone="503-555-0100",
+        current_school="Grant HS", grade_level="hs_12", intended_entry_term="fall",
+        intended_entry_year=2027,
+    )
+    subject, body = build_recruiter_notification(r)
+    assert "Sam Lee" in body
+    assert "sam@example.com" in body
+    assert "Grant HS" in body
