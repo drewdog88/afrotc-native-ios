@@ -1,5 +1,5 @@
 .wrap { min-height: 100vh; display: grid; place-items: center; padding: 2rem 1rem; background: var(--bg, #0b1220); }
-.card { width: 100%; max-width: 560px; background: var(--panel, #121a2b); border: 1px solid var(--border, #223); border-radius: 14px; padding: 2rem; display: flex; flex-direction: column; gap: 1rem; }
+.card { width: 100%; max-width: 560px; background: var(--surface, #ffffff); border: 1px solid var(--border, #223); border-radius: 14px; padding: 2rem; display: flex; flex-direction: column; gap: 1rem; }
 .head { display: flex; gap: 1rem; align-items: center; }
 .title { margin: 0; font-size: 1.5rem; }
 .lede { margin: .25rem 0 0; color: var(--muted, #9fb0c9); font-size: .95rem; }
