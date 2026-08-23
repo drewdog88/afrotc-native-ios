@@ -155,6 +155,7 @@ function UsersPanel({ currentUserId }: { currentUserId: number }) {
 function UserRow({ user, isSelf }: { user: UserOut; isSelf: boolean }) {
   const qc = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const invalidate = () => {
@@ -222,32 +223,51 @@ function UserRow({ user, isSelf }: { user: UserOut; isSelf: boolean }) {
           <span className={styles.stateDot} aria-hidden />
           {user.is_active ? "Active" : "Inactive"}
         </button>
+        {user.is_locked && (
+          <span className={styles.sub} title="Locked out of sign-in after too many failed attempts">
+            🔒 Locked
+          </span>
+        )}
       </td>
       <td className={styles.right}>
-        {confirmDelete ? (
-          <div className={styles.confirmRow}>
-            <span className={styles.confirmText}>Remove?</span>
-            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setConfirmDelete(false)}>
-              Cancel
-            </button>
-            <button type="button" className={styles.dangerBtn} disabled={busy} onClick={() => remove.mutate()}>
-              {remove.isPending ? "Removing…" : "Remove"}
-            </button>
-          </div>
-        ) : (
+        <div className={styles.confirmRow}>
           <button
             type="button"
             className="btn btn-ghost"
-            disabled={busy || isSelf}
-            title={isSelf ? "You can't remove your own account" : "Remove this user"}
+            disabled={busy}
             onClick={() => {
               setError(null);
-              setConfirmDelete(true);
+              setEditing(true);
             }}
           >
-            Remove
+            Edit
           </button>
-        )}
+          {confirmDelete ? (
+            <>
+              <span className={styles.confirmText}>Remove?</span>
+              <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setConfirmDelete(false)}>
+                Cancel
+              </button>
+              <button type="button" className={styles.dangerBtn} disabled={busy} onClick={() => remove.mutate()}>
+                {remove.isPending ? "Removing…" : "Remove"}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={busy || isSelf}
+              title={isSelf ? "You can't remove your own account" : "Remove this user"}
+              onClick={() => {
+                setError(null);
+                setConfirmDelete(true);
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+        {editing && <EditUserDrawer user={user} onClose={() => setEditing(false)} />}
       </td>
     </tr>
   );
@@ -367,6 +387,136 @@ function CreateUserDrawer({ onClose }: { onClose: () => void }) {
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={create.isPending}>
             {create.isPending ? "Adding…" : "Add user"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function EditUserDrawer({ user, onClose }: { user: UserOut; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({
+    first_name: user.first_name,
+    last_name: user.last_name,
+    email: user.email,
+    phone: user.phone ?? "",
+    password: "",
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["admin-users"] });
+    qc.invalidateQueries({ queryKey: ["admin-activity"] });
+  };
+
+  const save = useMutation({
+    mutationFn: (body: AdminUserUpdate) => api.patch<UserOut>(`/admin/users/${user.id}`, body),
+    onSuccess: () => {
+      invalidate();
+      onClose();
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Couldn't save these changes."),
+  });
+
+  const unlock = useMutation({
+    mutationFn: () =>
+      api.patch<UserOut>(`/admin/users/${user.id}`, { is_locked: false, failed_login_attempts: 0 }),
+    onSuccess: () => {
+      invalidate();
+      onClose();
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Couldn't unlock this account."),
+  });
+
+  const busy = save.isPending || unlock.isPending;
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const body: AdminUserUpdate = {
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim() || null,
+    };
+    if (form.password) body.password = form.password;
+    save.mutate(body);
+  }
+
+  return (
+    <div className={styles.scrim} onClick={onClose}>
+      <form className={styles.drawer} onClick={(e) => e.stopPropagation()} onSubmit={onSubmit}>
+        <div className={styles.drawerHead}>
+          <h2 className={styles.drawerTitle}>Edit {user.full_name}</h2>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+
+        {error && <div className={styles.formError}>{error}</div>}
+
+        {user.is_locked && (
+          <div className={styles.formError}>
+            This account is locked out of sign-in.{" "}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={busy}
+              onClick={() => {
+                setError(null);
+                unlock.mutate();
+              }}
+            >
+              {unlock.isPending ? "Unlocking…" : "Unlock account"}
+            </button>
+          </div>
+        )}
+
+        <div className={styles.formRow}>
+          <div className={styles.field}>
+            <label className="field-label" htmlFor="edit_first_name">First name</label>
+            <input id="edit_first_name" className="input" value={form.first_name} onChange={set("first_name")} required autoFocus />
+          </div>
+          <div className={styles.field}>
+            <label className="field-label" htmlFor="edit_last_name">Last name</label>
+            <input id="edit_last_name" className="input" value={form.last_name} onChange={set("last_name")} required />
+          </div>
+        </div>
+
+        <div className={styles.field}>
+          <label className="field-label" htmlFor="edit_email">Email</label>
+          <input id="edit_email" className="input" type="email" value={form.email} onChange={set("email")} required />
+        </div>
+
+        <div className={styles.field}>
+          <label className="field-label" htmlFor="edit_phone">Phone</label>
+          <input id="edit_phone" className="input" value={form.phone} onChange={set("phone")} />
+        </div>
+
+        <div className={styles.field}>
+          <label className="field-label" htmlFor="edit_password">Reset password</label>
+          <input
+            id="edit_password"
+            className="input"
+            type="password"
+            value={form.password}
+            onChange={set("password")}
+            placeholder="Leave blank to keep current password"
+            autoComplete="new-password"
+          />
+          <span className={styles.sectionNote}>
+            If set, the user must choose a new password at their next sign-in.
+          </span>
+        </div>
+
+        <div className={styles.drawerActions}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={busy}>
+            {save.isPending ? "Saving…" : "Save changes"}
           </button>
         </div>
       </form>
