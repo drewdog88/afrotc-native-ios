@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
+    # Email (Resend) — REQUIRED in production for intake acknowledgments.
+    # Empty disables sending (local/dev): submissions still succeed, emails are skipped.
+    resend_api_key: str = ""
+    resend_from_email: str = ""  # must be on a domain verified in Resend
+
+    # Cloudflare Turnstile secret (server-side verify). Empty disables verification
+    # (local/dev) — set in production so the public form is bot-protected.
+    turnstile_secret_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

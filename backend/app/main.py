@@ -19,10 +19,11 @@ logger = logging.getLogger("afrotc695")
 async def lifespan(app: FastAPI):
     # Schema is owned exclusively by Alembic migrations (see alembic/); the app
     # never creates tables itself. There is no local/SQLite fallback.
-    from app.bootstrap import bootstrap_admin
+    from app.bootstrap import bootstrap_admin, bootstrap_intake_settings
 
     with SessionLocal() as db:
         bootstrap_admin(db)
+        bootstrap_intake_settings(db)
 
     yield
 
