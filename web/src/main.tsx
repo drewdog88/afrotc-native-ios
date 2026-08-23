@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import { AppShell } from "./components/AppShell";
 import { Login } from "./pages/Login";
 import { ForgotPassword } from "./pages/ForgotPassword";
+import { RequestInfo } from "./pages/RequestInfo";
 import { Dashboard } from "./pages/Dashboard";
 import { Recruits } from "./pages/Recruits";
 import { RecruitDetail } from "./pages/RecruitDetail";
@@ -57,6 +58,7 @@ createRoot(document.getElementById("root")!).render(
               path="/forgot-password"
               element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>}
             />
+            <Route path="/request-info" element={<RequestInfo />} />
             <Route
               element={
                 <RequireAuth>
