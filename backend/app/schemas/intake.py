@@ -4,6 +4,7 @@ from __future__ import annotations
 from pydantic import BaseModel, EmailStr, field_validator
 
 from app.models.enums import GradeLevel, IntendedTerm
+from app.schemas.common import ORMModel
 
 
 class IntakeCreate(BaseModel):
@@ -46,3 +47,16 @@ class _Option(BaseModel):
 class IntakeOptions(BaseModel):
     grade_levels: list[_Option]
     terms: list[_Option]
+
+
+class IntakeSettingsOut(ORMModel):
+    id: int
+    recruiter_notification_email: str | None = None
+    ack_email_subject: str
+    ack_email_body: str
+
+
+class IntakeSettingsUpdate(BaseModel):
+    recruiter_notification_email: EmailStr | None = None
+    ack_email_subject: str | None = None
+    ack_email_body: str | None = None
