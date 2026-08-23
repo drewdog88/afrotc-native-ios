@@ -13,6 +13,7 @@ from app.api.v1 import (
     exports,
     followups,
     imports,
+    intake,
     materials,
     profile,
     recruits,
@@ -27,6 +28,8 @@ api_router.include_router(contacts.router)
 api_router.include_router(events.router)
 api_router.include_router(followups.router)
 api_router.include_router(materials.router)
+# Public, unauthenticated request-info intake.
+api_router.include_router(intake.router)
 # Analytics / dashboard (the recruitment-change-over-time reporting).
 api_router.include_router(analytics.router)
 # Bulk import + exports.
