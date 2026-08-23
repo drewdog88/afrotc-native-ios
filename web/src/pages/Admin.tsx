@@ -2,7 +2,7 @@
    a Users table (role + active state, add-user drawer, inline role/active edits and
    delete) and a reverse-chronological activity log. The whole screen is gated on the
    signed-in user being an admin; recruiters see a restricted notice instead. */
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -16,6 +16,8 @@ type UserPage = components["schemas"]["Page_UserOut_"];
 type ActivityLogOut = components["schemas"]["ActivityLogOut"];
 type ActivityPage = components["schemas"]["Page_ActivityLogOut_"];
 type UserRole = components["schemas"]["UserRole"];
+type IntakeSettingsOut = components["schemas"]["IntakeSettingsOut"];
+type IntakeSettingsUpdate = components["schemas"]["IntakeSettingsUpdate"];
 
 const ROLES: UserRole[] = ["admin", "recruiter", "viewer"];
 const ACTIVITY_PAGE = 25;
@@ -73,6 +75,7 @@ export function Admin() {
 
       <UsersPanel currentUserId={user.id} />
       <ActivityPanel />
+      <IntakeSettingsPanel />
     </div>
   );
 }
@@ -462,6 +465,128 @@ function ActivityPanel() {
           )}
         </div>
       )}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------ Intake settings ---- */
+
+function IntakeSettingsPanel() {
+  const qc = useQueryClient();
+  const [seeded, setSeeded] = useState(false);
+  const [email, setEmail] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const settingsQ = useQuery({
+    queryKey: ["intake-settings"],
+    queryFn: api.getIntakeSettings,
+  });
+
+  useEffect(() => {
+    if (settingsQ.data && !seeded) {
+      const data: IntakeSettingsOut = settingsQ.data;
+      setEmail(data.recruiter_notification_email ?? "");
+      setSubject(data.ack_email_subject);
+      setBody(data.ack_email_body);
+      setSeeded(true);
+    }
+  }, [settingsQ.data, seeded]);
+
+  const save = useMutation({
+    mutationFn: (payload: IntakeSettingsUpdate) => api.updateIntakeSettings(payload),
+    onSuccess: () => {
+      setSaved(true);
+      qc.invalidateQueries({ queryKey: ["intake-settings"] });
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Couldn't save these settings."),
+  });
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSaved(false);
+    save.mutate({
+      recruiter_notification_email: email.trim() || null,
+      ack_email_subject: subject.trim(),
+      ack_email_body: body,
+    });
+  }
+
+  return (
+    <section className={styles.section}>
+      <div className={styles.sectionHead}>
+        <div>
+          <h2 className={styles.sectionTitle}>Request-Info Settings</h2>
+          <span className={styles.sectionNote}>
+            Recruiter notification email and the applicant acknowledgment template
+          </span>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: "var(--sp-4)" }}>
+        {settingsQ.isLoading ? (
+          <div className={styles.skeleton} style={{ height: 260 }} />
+        ) : settingsQ.isError ? (
+          <div className={styles.empty}>Couldn't load Request-Info settings. Check that the API is running.</div>
+        ) : (
+          <form className={styles.section} onSubmit={onSubmit}>
+            {error && <div className={styles.formError}>{error}</div>}
+            {saved && !error && <div className={styles.sub}>Saved.</div>}
+
+            <div className={styles.field}>
+              <label className="field-label" htmlFor="recruiter_notification_email">
+                Recruiter notification email
+              </label>
+              <input
+                id="recruiter_notification_email"
+                className="input"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="recruiter@det695.org"
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label className="field-label" htmlFor="ack_email_subject">
+                Acknowledgment email subject
+              </label>
+              <input
+                id="ack_email_subject"
+                className="input"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label className="field-label" htmlFor="ack_email_body">
+                Acknowledgment email body
+              </label>
+              <textarea
+                id="ack_email_body"
+                className={`input ${styles.templateArea}`}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                required
+              />
+              <span className={styles.sectionNote}>
+                Use <code>{"{{first_name}}"}</code> to personalize. Links are clickable in the email.
+              </span>
+            </div>
+
+            <div>
+              <button type="submit" className="btn btn-primary" disabled={save.isPending}>
+                {save.isPending ? "Saving…" : "Save settings"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </section>
   );
 }
