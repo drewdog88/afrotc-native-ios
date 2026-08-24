@@ -14,7 +14,14 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import now_utc
 from app.models import IntakeSettings, PotentialRecruit, RecruitStageEvent
-from app.models.enums import GradeLevel, IntendedTerm, RecruitStage, school_type_for_grade
+from app.models.enums import (
+    GRADE_LABELS,
+    TERM_LABELS,
+    GradeLevel,
+    IntendedTerm,
+    RecruitStage,
+    school_type_for_grade,
+)
 from app.models.settings import DEFAULT_ACK_BODY, DEFAULT_ACK_SUBJECT
 from app.schemas.intake import IntakeCreate, IntakeOptions, IntakeSubmitResult, _Option
 from app.services.activity import record_activity
@@ -25,23 +32,11 @@ logger = logging.getLogger("afrotc695.intake")
 
 router = APIRouter(prefix="/intake", tags=["intake"])
 
-_GRADE_LABELS = {
-    GradeLevel.HS_9: "9th grade", GradeLevel.HS_10: "10th grade",
-    GradeLevel.HS_11: "11th grade", GradeLevel.HS_12: "12th grade",
-    GradeLevel.COLLEGE_FRESHMAN: "College freshman",
-    GradeLevel.COLLEGE_SOPHOMORE: "College sophomore",
-    GradeLevel.COLLEGE_JUNIOR: "College junior",
-    GradeLevel.COLLEGE_SENIOR: "College senior",
-    GradeLevel.OTHER: "Other",
-}
-_TERM_LABELS = {IntendedTerm.FALL: "Fall", IntendedTerm.SPRING: "Spring"}
-
-
 @router.get("/options", response_model=IntakeOptions)
 def intake_options() -> IntakeOptions:
     return IntakeOptions(
-        grade_levels=[_Option(value=g.value, label=_GRADE_LABELS[g]) for g in GradeLevel],
-        terms=[_Option(value=t.value, label=_TERM_LABELS[t]) for t in IntendedTerm],
+        grade_levels=[_Option(value=g.value, label=GRADE_LABELS[g]) for g in GradeLevel],
+        terms=[_Option(value=t.value, label=TERM_LABELS[t]) for t in IntendedTerm],
     )
 
 

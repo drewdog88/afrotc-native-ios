@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     # Cron / backup auth
     cron_secret: str = ""
 
+    # Public base URL of the deployed web app. Used to build deep links in
+    # transactional email (e.g. the recruiter "new lead" notification links
+    # straight to that lead's detail page). This must be the real public FQDN
+    # people receive in email — not the vercel.app deployment URL. Override via
+    # SITE_URL if the domain changes.
+    site_url: str = "https://www.afrotc695recruitment.com"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

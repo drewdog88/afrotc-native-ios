@@ -37,6 +37,48 @@ class IntendedTerm(StrEnum):
     SPRING = "spring"
 
 
+# Human-friendly display labels for the stored enum values. Single source of
+# truth for the public options endpoint AND transactional email — so the two
+# never drift.
+GRADE_LABELS: dict[GradeLevel, str] = {
+    GradeLevel.HS_9: "9th grade",
+    GradeLevel.HS_10: "10th grade",
+    GradeLevel.HS_11: "11th grade",
+    GradeLevel.HS_12: "12th grade",
+    GradeLevel.COLLEGE_FRESHMAN: "College freshman",
+    GradeLevel.COLLEGE_SOPHOMORE: "College sophomore",
+    GradeLevel.COLLEGE_JUNIOR: "College junior",
+    GradeLevel.COLLEGE_SENIOR: "College senior",
+    GradeLevel.OTHER: "Other",
+}
+TERM_LABELS: dict[IntendedTerm, str] = {
+    IntendedTerm.FALL: "Fall",
+    IntendedTerm.SPRING: "Spring",
+}
+
+
+def grade_label(value: str | None) -> str:
+    """Friendly label for a stored grade_level value; falls back to the raw
+    value (or '-') so an unexpected value is never lost."""
+    if not value:
+        return "-"
+    try:
+        return GRADE_LABELS[GradeLevel(value)]
+    except ValueError:
+        return value
+
+
+def term_label(value: str | None) -> str:
+    """Friendly label for a stored intended_entry_term value; falls back to the
+    raw value (or '-')."""
+    if not value:
+        return "-"
+    try:
+        return TERM_LABELS[IntendedTerm(value)]
+    except ValueError:
+        return value
+
+
 # Maps a submitted grade level to the school_type stored on the recruit.
 # OTHER stays OTHER (never silently labeled college).
 def school_type_for_grade(grade: GradeLevel) -> SchoolType:

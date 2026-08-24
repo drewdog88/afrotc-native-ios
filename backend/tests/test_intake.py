@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.models import IntakeSettings, PotentialRecruit
 from app.models.enums import GradeLevel, IntendedTerm, SchoolType, school_type_for_grade
 from app.services.email import build_recruiter_notification, render_ack
@@ -49,10 +50,26 @@ def test_build_recruiter_notification_includes_key_fields() -> None:
         current_school="Grant HS", grade_level="hs_12", intended_entry_term="fall",
         intended_entry_year=2027,
     )
+    r.id = 42
     subject, body = build_recruiter_notification(r)
     assert "Sam Lee" in body
     assert "sam@example.com" in body
     assert "Grant HS" in body
+    # Friendly labels, not raw enum values (hs_12 / fall).
+    assert "12th grade" in body
+    assert "hs_12" not in body
+    assert "Fall 2027" in body
+    # Direct deep link to this specific lead's detail page (not a generic reminder).
+    assert f"{settings.site_url.rstrip('/')}/recruits/42" in body
+
+
+def test_build_recruiter_notification_falls_back_when_no_id() -> None:
+    from app.models import PotentialRecruit
+    r = PotentialRecruit(first_name="Sam", last_name="Lee", current_school="Grant HS")
+    _, body = build_recruiter_notification(r)
+    # No id yet → link the recruits area rather than /recruits/None.
+    assert f"{settings.site_url.rstrip('/')}/recruits" in body
+    assert "/recruits/None" not in body
 
 
 def test_verify_turnstile_dev_mode_passes(monkeypatch) -> None:
