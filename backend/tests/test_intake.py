@@ -55,6 +55,10 @@ def test_build_recruiter_notification_includes_key_fields() -> None:
     assert "Sam Lee" in body
     assert "sam@example.com" in body
     assert "Grant HS" in body
+    # Friendly labels, not raw enum values (hs_12 / fall).
+    assert "12th grade" in body
+    assert "hs_12" not in body
+    assert "Fall 2027" in body
     # Direct deep link to this specific lead's detail page (not a generic reminder).
     assert f"{settings.site_url.rstrip('/')}/recruits/42" in body
 

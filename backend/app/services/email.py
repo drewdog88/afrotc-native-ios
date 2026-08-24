@@ -10,6 +10,7 @@ import logging
 import httpx
 
 from app.core.config import settings
+from app.models.enums import grade_label, term_label
 
 logger = logging.getLogger("afrotc695.email")
 
@@ -52,7 +53,8 @@ def render_ack(subject_template: str, body_template: str, first_name: str) -> tu
 def build_recruiter_notification(recruit) -> tuple[str, str]:
     """Subject/body for the internal 'new lead' notification."""
     subject = f"New AFROTC interest: {recruit.first_name} {recruit.last_name}"
-    term_line = f"{recruit.intended_entry_term or '-'} {recruit.intended_entry_year or ''}".rstrip()
+    term = term_label(recruit.intended_entry_term)
+    term_line = f"{term} {recruit.intended_entry_year or ''}".rstrip()
     # Deep link straight to this lead's detail page. Falls back to the recruits
     # list if the recruit hasn't been assigned an id yet (shouldn't happen in
     # production — it's committed before the notification is built).
@@ -65,7 +67,7 @@ def build_recruiter_notification(recruit) -> tuple[str, str]:
         f"Email:   {recruit.email or '-'}",
         f"Phone:   {recruit.phone or '-'}",
         f"School:  {recruit.current_school}",
-        f"Grade:   {recruit.grade_level or '-'}",
+        f"Grade:   {grade_label(recruit.grade_level)}",
         f"Term:    {term_line}",
         "",
         f"View this lead: {lead_url}",
