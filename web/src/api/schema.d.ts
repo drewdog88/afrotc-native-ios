@@ -853,7 +853,7 @@ export interface components {
             /** User Agent */
             user_agent?: string | null;
             /** User Id */
-            user_id: number;
+            user_id?: number | null;
             /** Username */
             username: string;
         };
@@ -883,14 +883,22 @@ export interface components {
         };
         /** AdminUserUpdate */
         AdminUserUpdate: {
+            /** Email */
+            email?: string | null;
             /** Failed Login Attempts */
             failed_login_attempts?: number | null;
+            /** First Name */
+            first_name?: string | null;
             /** Is Active */
             is_active?: boolean | null;
             /** Is Locked */
             is_locked?: boolean | null;
+            /** Last Name */
+            last_name?: string | null;
             /** Password */
             password?: string | null;
+            /** Phone */
+            phone?: string | null;
             role?: components["schemas"]["UserRole"] | null;
         };
         /** Body_import_recruits_api_v1_recruits_import_post */

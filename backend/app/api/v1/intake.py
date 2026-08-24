@@ -17,6 +17,7 @@ from app.models import IntakeSettings, PotentialRecruit, RecruitStageEvent
 from app.models.enums import GradeLevel, IntendedTerm, RecruitStage, school_type_for_grade
 from app.models.settings import DEFAULT_ACK_BODY, DEFAULT_ACK_SUBJECT
 from app.schemas.intake import IntakeCreate, IntakeOptions, IntakeSubmitResult, _Option
+from app.services.activity import record_activity
 from app.services.email import build_recruiter_notification, render_ack, send_email
 from app.services.spam import client_ip, too_many_from_ip, verify_turnstile
 
@@ -90,9 +91,10 @@ def submit_intake(
     # --- Best-effort notifications (never fail the accepted submission) ---
     settings_row = db.get(IntakeSettings, 1)
     recruiter_email = settings_row.recruiter_notification_email if settings_row else None
+    recruiter_status = "not configured"
     if recruiter_email:
         subject, notif_body = build_recruiter_notification(recruit)
-        send_email(recruiter_email, subject, notif_body)
+        recruiter_status = "sent" if send_email(recruiter_email, subject, notif_body) else "failed"
 
     # Always attempt the applicant acknowledgment, falling back to the packaged
     # defaults if the settings row is missing (defense in depth — bootstrap seeds it,
@@ -100,7 +102,8 @@ def submit_intake(
     ack_subject_tmpl = settings_row.ack_email_subject if settings_row else DEFAULT_ACK_SUBJECT
     ack_body_tmpl = settings_row.ack_email_body if settings_row else DEFAULT_ACK_BODY
     subj, body_text = render_ack(ack_subject_tmpl, ack_body_tmpl, recruit.first_name)
-    if send_email(recruit.email, subj, body_text):
+    ack_sent = send_email(recruit.email, subj, body_text)
+    if ack_sent:
         try:
             recruit.acknowledgment_email_sent_at = now_utc()
             db.commit()
@@ -112,5 +115,21 @@ def submit_intake(
                 "Failed to record acknowledgment_email_sent_at for recruit %s",
                 recruit.id, exc_info=True,
             )
+
+    # Audit trail: surface the public submission (and both email outcomes) in the
+    # admin Activity Log. Best-effort — record_activity never raises.
+    record_activity(
+        db,
+        username="Public form",
+        action="CONTACT_SUBMITTED",
+        table_name="potential_recruit",
+        record_id=recruit.id,
+        record_description=f"{recruit.first_name} {recruit.last_name}",
+        details=(
+            f"recruiter notification: {recruiter_status}; "
+            f"acknowledgment: {'sent' if ack_sent else 'failed'}"
+        ),
+        request=request,
+    )
 
     return IntakeSubmitResult()

@@ -101,8 +101,15 @@
             "title": "User Agent"
           },
           "user_id": {
-            "title": "User Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
           },
           "username": {
             "title": "Username",
@@ -111,7 +118,6 @@
         },
         "required": [
           "id",
-          "user_id",
           "username",
           "action",
           "created_at"
@@ -180,6 +186,18 @@
       },
       "AdminUserUpdate": {
         "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
           "failed_login_attempts": {
             "anyOf": [
               {
@@ -190,6 +208,17 @@
               }
             ],
             "title": "Failed Login Attempts"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
           },
           "is_active": {
             "anyOf": [
@@ -213,6 +242,17 @@
             ],
             "title": "Is Locked"
           },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
           "password": {
             "anyOf": [
               {
@@ -223,6 +263,17 @@
               }
             ],
             "title": "Password"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           },
           "role": {
             "anyOf": [
@@ -1955,15 +2006,18 @@
             "type": "boolean"
           },
           "current_school": {
+            "maxLength": 100,
             "title": "Current School",
             "type": "string"
           },
           "email": {
             "format": "email",
+            "maxLength": 120,
             "title": "Email",
             "type": "string"
           },
           "first_name": {
+            "maxLength": 50,
             "title": "First Name",
             "type": "string"
           },
@@ -1978,10 +2032,12 @@
             "type": "integer"
           },
           "last_name": {
+            "maxLength": 50,
             "title": "Last Name",
             "type": "string"
           },
           "phone": {
+            "maxLength": 20,
             "title": "Phone",
             "type": "string"
           },
