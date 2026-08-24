@@ -60,14 +60,38 @@ Migrations are **not** run by the build — apply Alembic against the **direct**
 
 ### Migration checklist (run whenever a deploy includes a DB change)
 
-Vercel ships the **code**; it does **not** change the **database structure**. Any deploy that adds or edits an Alembic migration needs this one manual step, run against the **direct (non-pooled)** Neon host:
+Vercel ships the **code**; it does **not** change the **database structure**. Any deploy that adds or edits an Alembic migration needs this one manual step, run from a machine with repo + `uv`, against the **direct (non-pooled)** Neon host. Alembic needs a stable session; the pooled endpoint can drop the connection mid-migration.
+
+**1. Get the direct connection string.** In the Neon dashboard → project → **Connect**, toggle **off** "Connection pooling". It's the pooled string *without* `-pooler` in the host:
+
+```
+postgresql://USER:PASSWORD@ep-xxxx.us-west-2.aws.neon.tech/DBNAME?sslmode=require
+```
+
+**2. Point Alembic at it and check what's pending** (read-only — safe to run first):
 
 ```bash
 cd backend
+export DATABASE_URL='postgresql+psycopg://USER:PASSWORD@ep-xxxx.us-west-2.aws.neon.tech/DBNAME?sslmode=require'
+uv run alembic current     # revision the DB is on now
+uv run alembic history     # the full chain; the top entry is "head"
+```
+
+**3. Apply it:**
+
+```bash
 uv run alembic upgrade head    # applies any not-yet-applied migrations
 ```
 
+**4. Confirm:**
+
+```bash
+uv run alembic current     # should now report the head revision
+```
+
 `upgrade head` = "bring the database up to the latest migration in the repo." Skipping it means the running code expects a table/column shape the live database doesn't have yet, which surfaces as 500s on the affected feature.
+
+> **Notes:** Keep the `+psycopg` driver prefix — it matches how the app connects; a bare `postgresql://` may pick the wrong driver. Put the real URL only in your shell or `.env.local`, **never** committed (this repo is public). Migrations here are additive; review the migration file before applying if unsure.
 
 **⏳ Pending as of 2026-08-23:** migration `6bff7689c532` makes `activity_log.user_id` nullable (needed so **public request-info form** submissions — which have no signed-in user — can be recorded in the Activity Log). Until it's applied, a public submission will error when it tries to write its audit-log row.
 
