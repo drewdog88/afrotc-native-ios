@@ -58,6 +58,19 @@ Set on every response in `vercel.json`:
 
 Migrations are **not** run by the build — apply Alembic against the **direct** (non-pooled) host before/after deploy as needed (see [Database](Database)).
 
+### Migration checklist (run whenever a deploy includes a DB change)
+
+Vercel ships the **code**; it does **not** change the **database structure**. Any deploy that adds or edits an Alembic migration needs this one manual step, run against the **direct (non-pooled)** Neon host:
+
+```bash
+cd backend
+uv run alembic upgrade head    # applies any not-yet-applied migrations
+```
+
+`upgrade head` = "bring the database up to the latest migration in the repo." Skipping it means the running code expects a table/column shape the live database doesn't have yet, which surfaces as 500s on the affected feature.
+
+**⏳ Pending as of 2026-08-23:** migration `6bff7689c532` makes `activity_log.user_id` nullable (needed so **public request-info form** submissions — which have no signed-in user — can be recorded in the Activity Log). Until it's applied, a public submission will error when it tries to write its audit-log row.
+
 ## Deploy flow
 
 ```mermaid
