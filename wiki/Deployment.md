@@ -93,7 +93,7 @@ uv run alembic current     # should now report the head revision
 
 > **Notes:** Keep the `+psycopg` driver prefix — it matches how the app connects; a bare `postgresql://` may pick the wrong driver. Put the real URL only in your shell or `.env.local`, **never** committed (this repo is public). Migrations here are additive; review the migration file before applying if unsure.
 
-**⏳ Pending as of 2026-08-23:** migration `6bff7689c532` makes `activity_log.user_id` nullable (needed so **public request-info form** submissions — which have no signed-in user — can be recorded in the Activity Log). Until it's applied, a public submission will error when it tries to write its audit-log row.
+**✅ Applied 2026-08-23:** migration `6bff7689c532` makes `activity_log.user_id` nullable (needed so **public request-info form** submissions — which have no signed-in user — can be recorded in the Activity Log). Before it was applied, the submission itself still succeeded and the lead was saved (audit logging is best-effort and never fails the request) — only the audit-log row was silently dropped, so public submissions did not appear in the admin Activity Log.
 
 ## Deploy flow
 
