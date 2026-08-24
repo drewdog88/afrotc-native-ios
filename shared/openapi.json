@@ -101,8 +101,15 @@
             "title": "User Agent"
           },
           "user_id": {
-            "title": "User Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
           },
           "username": {
             "title": "Username",
@@ -111,7 +118,6 @@
         },
         "required": [
           "id",
-          "user_id",
           "username",
           "action",
           "created_at"

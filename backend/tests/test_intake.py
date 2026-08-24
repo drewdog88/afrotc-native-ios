@@ -209,3 +209,50 @@ def test_overlength_email_is_422(client, monkeypatch) -> None:
     bad = {**_VALID, "email": ("a" * 115) + "@example.com"}
     resp = client.post("/api/v1/intake", json=bad)
     assert resp.status_code == 422
+
+
+def test_submission_writes_activity_log_entry(client, monkeypatch) -> None:
+    # A public submission appears in the admin Activity Log with no user_id,
+    # a "Public form" label, and both email outcomes in the details.
+    from app.bootstrap import bootstrap_intake_settings
+    from app.models import ActivityLog
+
+    with TestingSessionLocal() as db:
+        bootstrap_intake_settings(db)
+        db.get(IntakeSettings, 1).recruiter_notification_email = "recruiter@det695.local"
+        db.commit()
+    _emails(monkeypatch)  # both sends succeed
+
+    resp = client.post("/api/v1/intake", json=_VALID)
+    assert resp.status_code == 201, resp.text
+
+    with TestingSessionLocal() as db:
+        entries = (
+            db.query(ActivityLog).filter(ActivityLog.action == "CONTACT_SUBMITTED").all()
+        )
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.user_id is None
+        assert entry.username == "Public form"
+        assert entry.table_name == "potential_recruit"
+        assert entry.record_id is not None
+        assert "recruiter notification: sent" in (entry.details or "")
+        assert "acknowledgment: sent" in (entry.details or "")
+
+
+def test_submission_activity_log_records_email_failure(client, monkeypatch) -> None:
+    # No recruiter address configured + a failing send: the audit entry records
+    # both. The submission itself still succeeds (201).
+    import app.api.v1.intake as intake_mod
+    from app.models import ActivityLog
+
+    monkeypatch.setattr(intake_mod, "send_email", lambda to, subject, body: False)
+    resp = client.post("/api/v1/intake", json=_VALID)
+    assert resp.status_code == 201, resp.text
+
+    with TestingSessionLocal() as db:
+        entry = (
+            db.query(ActivityLog).filter(ActivityLog.action == "CONTACT_SUBMITTED").one()
+        )
+        assert "recruiter notification: not configured" in (entry.details or "")
+        assert "acknowledgment: failed" in (entry.details or "")

@@ -88,7 +88,11 @@ class ActivityLog(Base):
     __tablename__ = "activity_log"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    # Nullable: public/system actions (e.g. a public request-info submission)
+    # have no signed-in user. `username` still carries a human label ("Public form").
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), index=True, nullable=True
+    )
     username: Mapped[str] = mapped_column(String(80))
     action: Mapped[str] = mapped_column(String(100))  # CREATE/UPDATE/DELETE/LOGIN/...
     table_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -101,4 +105,4 @@ class ActivityLog(Base):
         DateTime(timezone=True), default=now_utc, index=True
     )
 
-    user: Mapped[User] = relationship(back_populates="activity_logs")
+    user: Mapped[User | None] = relationship(back_populates="activity_logs")

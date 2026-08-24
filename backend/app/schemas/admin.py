@@ -38,7 +38,7 @@ class AdminUserUpdate(BaseModel):
 
 class ActivityLogOut(ORMModel):
     id: int
-    user_id: int
+    user_id: int | None = None  # null for public/system actions (e.g. public intake)
     username: str
     action: str
     table_name: str | None = None

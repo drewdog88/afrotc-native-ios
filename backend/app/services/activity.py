@@ -32,7 +32,8 @@ def _client_ip(request: Request | None) -> str | None:
 def record_activity(
     db: Session,
     *,
-    user: User,
+    user: User | None = None,
+    username: str | None = None,
     action: str,
     table_name: str | None = None,
     record_id: int | None = None,
@@ -40,12 +41,17 @@ def record_activity(
     details: str | None = None,
     request: Request | None = None,
 ) -> None:
-    """Record one activity-log entry. Best-effort — never raises."""
+    """Record one activity-log entry. Best-effort — never raises.
+
+    Pass ``user`` for a signed-in actor; for a public/system action (e.g. a
+    public request-info submission) omit ``user`` and pass ``username`` as the
+    human label (the row's ``user_id`` is then null).
+    """
     try:
         ua = request.headers.get("user-agent") if request is not None else None
         entry = ActivityLog(
-            user_id=user.id,
-            username=user.username,
+            user_id=user.id if user is not None else None,
+            username=user.username if user is not None else (username or "system"),
             action=action,
             table_name=table_name,
             record_id=record_id,

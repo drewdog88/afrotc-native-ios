@@ -853,7 +853,7 @@ export interface components {
             /** User Agent */
             user_agent?: string | null;
             /** User Id */
-            user_id: number;
+            user_id?: number | null;
             /** Username */
             username: string;
         };
