@@ -146,6 +146,7 @@ private struct UserRow: View {
 
     @State private var busy = false
     @State private var error: String?
+    @State private var editing = false
 
     private static let roles = ["admin", "recruiter", "viewer"]
 
@@ -159,6 +160,12 @@ private struct UserRow: View {
                             Text("You").font(.caption2.weight(.semibold))
                                 .padding(.horizontal, 6).padding(.vertical, 1)
                                 .background(Capsule().fill(Theme.accent.opacity(0.2)))
+                        }
+                        if user.isLocked {
+                            Label("Locked", systemImage: "lock.fill")
+                                .labelStyle(.titleAndIcon)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(Theme.danger)
                         }
                     }
                     Text("@\(user.username)\(user.email.isEmpty ? "" : " · \(user.email)")")
@@ -193,11 +200,18 @@ private struct UserRow: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(busy || isSelf)
+
+                Button { editing = true } label: {
+                    Label("Edit", systemImage: "pencil").font(.caption.weight(.medium))
+                }
+                .buttonStyle(.plain)
+                .disabled(busy)
                 Spacer()
             }
             if let error { Text(error).font(.caption).foregroundStyle(Theme.danger) }
         }
         .padding(.vertical, 4)
+        .sheet(isPresented: $editing) { EditUserSheet(user: user) { await onChange() } }
     }
 
     private func update(_ body: AdminUserUpdate) async {
@@ -302,6 +316,115 @@ private struct AddUserSheet: View {
             secretAnswer: secretAnswer.trimmingCharacters(in: .whitespaces))
         do {
             _ = try await APIClient.shared.createAdminUser(body)
+            dismiss()
+            await onSave()
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+}
+
+/// Edit-user sheet, mirroring the web edit drawer: change name/email/phone,
+/// optionally reset the password (forces a change at next sign-in), and unlock
+/// an account that's been locked out after too many failed sign-ins.
+private struct EditUserSheet: View {
+    let user: UserOut
+    let onSave: () async -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var firstName: String
+    @State private var lastName: String
+    @State private var email: String
+    @State private var phone: String
+    @State private var password = ""
+    @State private var saving = false
+    @State private var error: String?
+
+    init(user: UserOut, onSave: @escaping () async -> Void) {
+        self.user = user
+        self.onSave = onSave
+        _firstName = State(initialValue: user.firstName)
+        _lastName = State(initialValue: user.lastName)
+        _email = State(initialValue: user.email)
+        _phone = State(initialValue: user.phone ?? "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if let error { Section { Text(error).foregroundStyle(Theme.danger) } }
+                if user.isLocked {
+                    Section {
+                        Button {
+                            Task { await unlock() }
+                        } label: {
+                            Label("Unlock account", systemImage: "lock.open")
+                        }
+                        .disabled(saving)
+                    } header: {
+                        Text("Locked out")
+                    } footer: {
+                        Text("Locked after too many failed sign-ins. Unlocking clears the lock and the failed-attempt count.")
+                    }
+                }
+                Section("Name") {
+                    TextField("First name", text: $firstName).textContentType(.givenName)
+                    TextField("Last name", text: $lastName).textContentType(.familyName)
+                }
+                Section("Contact") {
+                    TextField("Email", text: $email)
+                        .textContentType(.emailAddress).keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    TextField("Phone (optional)", text: $phone)
+                        .textContentType(.telephoneNumber).keyboardType(.phonePad)
+                }
+                Section {
+                    SecureField("New password", text: $password).textContentType(.newPassword)
+                } header: {
+                    Text("Reset password")
+                } footer: {
+                    Text("Leave blank to keep the current password. If set, the user must choose a new one at next sign-in.")
+                }
+            }
+            .navigationTitle("Edit \(user.fullName)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { Task { await save() } }.disabled(saving || !isValid)
+                }
+            }
+        }
+    }
+
+    private var isValid: Bool {
+        ![firstName, lastName, email].contains { $0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
+    private func save() async {
+        saving = true; error = nil
+        defer { saving = false }
+        var body = AdminUserUpdate(
+            firstName: firstName.trimmingCharacters(in: .whitespaces),
+            lastName: lastName.trimmingCharacters(in: .whitespaces),
+            email: email.trimmingCharacters(in: .whitespaces),
+            phone: phone.trimmingCharacters(in: .whitespaces).nilIfEmpty)
+        if !password.isEmpty { body.password = password }
+        do {
+            _ = try await APIClient.shared.updateAdminUser(id: user.id, body)
+            dismiss()
+            await onSave()
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func unlock() async {
+        saving = true; error = nil
+        defer { saving = false }
+        do {
+            _ = try await APIClient.shared.updateAdminUser(
+                id: user.id, AdminUserUpdate(isLocked: false, failedLoginAttempts: 0))
             dismiss()
             await onSave()
         } catch {

@@ -32,6 +32,7 @@ struct UserOut: Decodable, Identifiable {
     let isActive: Bool
     let isAdmin: Bool
     var phone: String?
+    var isLocked: Bool = false  // defaulted so older payloads still decode
 }
 
 // MARK: - Password reset (security-question flow)

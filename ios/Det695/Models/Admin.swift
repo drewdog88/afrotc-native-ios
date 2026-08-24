@@ -19,11 +19,17 @@ struct AdminUserCreate: Encodable {
 }
 
 /// PATCH /admin/users/{id} — only the keys we send change (backend uses
-/// `exclude_unset`). Role and active-state are the two the console edits inline.
+/// `exclude_unset`). The console edits profile fields, role, active-state, and
+/// can reset a password or clear a lockout.
 struct AdminUserUpdate: Encodable {
+    var firstName: String?
+    var lastName: String?
+    var email: String?
+    var phone: String?
     var role: String?
     var isActive: Bool?
     var isLocked: Bool?
+    var failedLoginAttempts: Int?
     var password: String?
 }
 
@@ -31,7 +37,7 @@ struct AdminUserUpdate: Encodable {
 /// arrives as an ISO-8601 string and is formatted for display via `DateDisplay`.
 struct ActivityLogOut: Decodable, Identifiable {
     let id: Int
-    let userId: Int
+    let userId: Int?  // null for public/system actions (e.g. a public request-info submission)
     let username: String
     let action: String
     var tableName: String?
