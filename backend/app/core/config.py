@@ -58,9 +58,10 @@ class Settings(BaseSettings):
 
     # Public base URL of the deployed web app. Used to build deep links in
     # transactional email (e.g. the recruiter "new lead" notification links
-    # straight to that lead's detail page). Override via SITE_URL if the site
-    # moves to the custom domain.
-    site_url: str = "https://afrotc-native-ios.vercel.app"
+    # straight to that lead's detail page). This must be the real public FQDN
+    # people receive in email — not the vercel.app deployment URL. Override via
+    # SITE_URL if the domain changes.
+    site_url: str = "https://www.afrotc695recruitment.com"
 
     @property
     def cors_origin_list(self) -> list[str]:
