@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     # Cron / backup auth
     cron_secret: str = ""
 
+    # Public base URL of the deployed web app. Used to build deep links in
+    # transactional email (e.g. the recruiter "new lead" notification links
+    # straight to that lead's detail page). Override via SITE_URL if the site
+    # moves to the custom domain.
+    site_url: str = "https://afrotc-native-ios.vercel.app"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
