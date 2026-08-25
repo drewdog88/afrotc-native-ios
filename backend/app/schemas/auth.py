@@ -92,5 +92,8 @@ class UserOut(ORMModel):
     is_admin: bool
     force_password_change: bool
     is_2fa_active: bool
+    two_factor_enabled: bool = False
+    two_factor_method: str | None = None
+    two_factor_enrollment_prompted: bool = False
     days_until_password_expiry: int | None = None
     created_at: datetime | None = None
