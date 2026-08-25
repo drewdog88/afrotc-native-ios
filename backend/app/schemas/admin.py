@@ -34,6 +34,7 @@ class AdminUserUpdate(BaseModel):
     is_locked: bool | None = None
     failed_login_attempts: int | None = None
     password: str | None = None
+    two_factor_enabled: bool | None = None
 
 
 class ActivityLogOut(ORMModel):
