@@ -9,20 +9,18 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-import pyotp
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.services.activity import record_activity
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import (
     create_access_token,
+    create_challenge_token,
     create_refresh_token,
     decode_token,
-    decrypt_secret,
     hash_password,
     now_utc,
     verify_password,
@@ -32,13 +30,20 @@ from app.schemas.auth import (
     AccessToken,
     ForgotPasswordRequest,
     LoginRequest,
+    LoginResponse,
+    LoginVerifyRequest,
+    LoginVerifyResponse,
     PasswordChange,
     RefreshRequest,
+    ResendRequest,
     ResetPasswordRequest,
     SecretQuestionOut,
-    TokenPair,
     UserOut,
 )
+from app.schemas.common import Message
+from app.services import otp, trusted_devices
+from app.services.activity import record_activity
+from app.services.email import send_2fa_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -78,8 +83,22 @@ def _apply_new_password(db: Session, user: User, new_password: str) -> None:
         user.password_expires_at = now_utc() + timedelta(days=settings.password_expiry_days)
 
 
-@router.post("/login", response_model=TokenPair)
-def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -> TokenPair:
+def _issue_token_pair(user: User) -> tuple[str, str]:
+    subject = str(user.id)
+    return create_access_token(subject), create_refresh_token(subject)
+
+
+def _record_login(db: Session, user: User, request: Request) -> None:
+    user.failed_login_attempts = 0
+    db.commit()
+    record_activity(
+        db, user=user, action="LOGIN", table_name="users",
+        record_id=user.id, record_description=user.username, request=request,
+    )
+
+
+@router.post("/login", response_model=LoginResponse)
+def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -> LoginResponse:
     user = _find_user(db, body.username)
     if user is None:
         raise _BAD_CREDS
@@ -90,7 +109,6 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -
         )
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
-
     if not verify_password(body.password, user.password_hash):
         user.failed_login_attempts += 1
         if user.failed_login_attempts >= settings.max_failed_logins:
@@ -98,38 +116,96 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -
         db.commit()
         raise _BAD_CREDS
 
-    # Second factor, when the account has it active.
     if user.is_2fa_active:
-        if not body.totp_code:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="2FA code required"
+        cookie_token = request.cookies.get(settings.trusted_device_cookie_name)
+        if trusted_devices.find_valid(db, user, body.trust_token or cookie_token):
+            _record_login(db, user, request)
+            access, refresh = _issue_token_pair(user)
+            return LoginResponse(
+                access_token=access, refresh_token=refresh,
+                force_password_change=user.force_password_change or user.is_password_expired,
             )
-        secret = decrypt_secret(user.totp_secret) if user.totp_secret else None
-        if not secret or not pyotp.TOTP(secret).verify(body.totp_code, valid_window=1):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid 2FA code"
-            )
+        # Email challenge: mint + store a code, email it, return a challenge token.
+        code = otp.issue_code(user, "login")
+        db.commit()
+        send_2fa_code(user.email, code)
+        return LoginResponse(
+            two_factor_required=True,
+            method=user.two_factor_method,
+            challenge_token=create_challenge_token(str(user.id)),
+        )
 
-    # Success — reset counters.
-    user.failed_login_attempts = 0
-    db.commit()
-
-    record_activity(
-        db,
-        user=user,
-        action="LOGIN",
-        table_name="users",
-        record_id=user.id,
-        record_description=user.username,
-        request=request,
-    )
-
-    subject = str(user.id)
-    return TokenPair(
-        access_token=create_access_token(subject),
-        refresh_token=create_refresh_token(subject),
+    _record_login(db, user, request)
+    access, refresh = _issue_token_pair(user)
+    return LoginResponse(
+        access_token=access, refresh_token=refresh,
         force_password_change=user.force_password_change or user.is_password_expired,
     )
+
+
+def _challenge_user(db: Session, challenge_token: str) -> User:
+    payload = decode_token(challenge_token)
+    if not payload or payload.get("type") != "login_2fa":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired challenge"
+        )
+    try:
+        user = db.get(User, int(payload["sub"]))
+    except (KeyError, ValueError, TypeError):
+        user = None
+    if user is None or not user.is_active or not user.is_2fa_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired challenge"
+        )
+    return user
+
+
+@router.post("/login/verify", response_model=LoginVerifyResponse)
+def login_verify(
+    body: LoginVerifyRequest, request: Request, response: Response, db: Session = Depends(get_db)
+) -> LoginVerifyResponse:
+    user = _challenge_user(db, body.challenge_token)
+    if not otp.verify_code(user, body.code, "login"):
+        db.commit()  # persist the attempt increment
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired code"
+        )
+
+    _record_login(db, user, request)
+    trust_token: str | None = None
+    if body.trust_device:
+        label = request.headers.get("user-agent", "")[:255]
+        trust_token = trusted_devices.trust_device(db, user, label)
+        response.set_cookie(
+            key=settings.trusted_device_cookie_name,
+            value=trust_token,
+            max_age=settings.trusted_device_ttl_days * 24 * 3600,
+            httponly=True, secure=True, samesite="lax",
+        )
+    access, refresh = _issue_token_pair(user)
+    return LoginVerifyResponse(
+        access_token=access, refresh_token=refresh,
+        force_password_change=user.force_password_change or user.is_password_expired,
+        trust_token=trust_token,
+    )
+
+
+@router.post("/login/resend", response_model=Message)
+def login_resend(body: ResendRequest, db: Session = Depends(get_db)) -> Message:
+    user = _challenge_user(db, body.challenge_token)
+    if user.otp_purpose != "login":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No active login challenge"
+        )
+    code = otp.resend_code(user)
+    if code is None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Please wait before requesting another code",
+        )
+    db.commit()
+    send_2fa_code(user.email, code)
+    return Message(detail="A new code has been sent")
 
 
 @router.post("/refresh", response_model=AccessToken)

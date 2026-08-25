@@ -3,13 +3,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-import pyotp
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.core.security import encrypt_secret
 from app.models import User
-from app.models.enums import UserRole
 
 from .conftest import ADMIN_PASSWORD, ADMIN_USERNAME
 
@@ -168,29 +165,3 @@ def test_change_password_enforces_min_length(
         json={"current_password": "LongEnough123!", "new_password": "short"},
     )
     assert resp.status_code == 422  # schema rejects < 8 chars before the handler runs
-
-
-def test_2fa_required_and_verified(
-    client: TestClient, make_user: Callable[..., User], login
-) -> None:
-    secret = pyotp.random_base32()
-    make_user(
-        "twofa",
-        "TwoFactor123!",
-        role=UserRole.RECRUITER,
-        totp_secret=encrypt_secret(secret),
-        totp_enabled=True,
-        totp_setup_completed=True,
-    )
-
-    # Missing code is rejected.
-    resp = login(client, "twofa", "TwoFactor123!")
-    assert resp.status_code == 401
-    assert "2fa" in resp.json()["detail"].lower()
-
-    # Wrong code is rejected.
-    assert login(client, "twofa", "TwoFactor123!", "000000").status_code == 401
-
-    # Correct code succeeds.
-    code = pyotp.TOTP(secret).now()
-    assert login(client, "twofa", "TwoFactor123!", code).status_code == 200

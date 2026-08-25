@@ -11,7 +11,8 @@ from app.schemas.common import ORMModel
 class LoginRequest(BaseModel):
     username: str  # accepts username or email
     password: str
-    totp_code: str | None = None  # required when the account has 2FA active
+    totp_code: str | None = None  # legacy; unused by the email flow, kept for compat
+    trust_token: str | None = None  # opaque trusted-device token (also read from cookie)
 
 
 class TokenPair(BaseModel):
@@ -19,6 +20,32 @@ class TokenPair(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     force_password_change: bool = False
+
+
+class LoginResponse(BaseModel):
+    """Either a token pair (success) or a 2FA challenge that needs a code."""
+
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_type: str = "bearer"
+    force_password_change: bool = False
+    two_factor_required: bool = False
+    method: str | None = None
+    challenge_token: str | None = None
+
+
+class LoginVerifyRequest(BaseModel):
+    challenge_token: str
+    code: str
+    trust_device: bool = False
+
+
+class LoginVerifyResponse(TokenPair):
+    trust_token: str | None = None
+
+
+class ResendRequest(BaseModel):
+    challenge_token: str
 
 
 class AccessToken(BaseModel):
