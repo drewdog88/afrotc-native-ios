@@ -41,3 +41,26 @@ def test_change_password_revokes_trusted_devices(
     )
     assert resp.status_code == 200
     assert _count_live_devices(user.id) == 0
+
+
+def test_reset_password_revokes_trusted_devices(
+    client: TestClient, make_user: Callable[..., User], monkeypatch
+) -> None:
+    monkeypatch.setattr(otp, "generate_code", lambda: "123456")
+    monkeypatch.setattr(email, "send_email", lambda *a, **k: True)
+    user = make_user("pw2", "OldPass123!", two_factor_enabled=True, two_factor_method="email")
+    challenge = client.post(
+        "/api/v1/auth/login", json={"username": "pw2", "password": "OldPass123!"}
+    ).json()["challenge_token"]
+    client.post(
+        "/api/v1/auth/login/verify",
+        json={"challenge_token": challenge, "code": "123456", "trust_device": True},
+    ).json()
+    assert _count_live_devices(user.id) == 1
+
+    resp = client.post(
+        "/api/v1/auth/reset-password",
+        json={"username": "pw2", "secret_answer": "695", "new_password": "BrandNew123!"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert _count_live_devices(user.id) == 0

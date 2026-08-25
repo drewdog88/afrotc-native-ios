@@ -36,3 +36,26 @@ def test_revoke_all_except_current(make_user: Callable[..., User]) -> None:
         assert n == 2
         assert td.find_valid(db, user, keep) is not None
         assert len(td.list_devices(db, user)) == 1
+
+
+def test_revoke_own_device_sets_revoked_at(make_user: Callable[..., User]) -> None:
+    user = make_user("td4")
+    with TestingSessionLocal() as db:
+        token = td.trust_device(db, user, "revokeme")
+        row = db.query(TrustedDevice).one()
+        assert td.revoke(db, user, row.id) is True
+        db.refresh(row)
+        assert row.revoked_at is not None
+        assert td.find_valid(db, user, token) is None
+
+
+def test_find_valid_none_for_revoked_device_with_correct_token(
+    make_user: Callable[..., User]
+) -> None:
+    user = make_user("td5")
+    with TestingSessionLocal() as db:
+        token = td.trust_device(db, user, "willrevoke")
+        row = db.query(TrustedDevice).one()
+        assert td.find_valid(db, user, token) is not None
+        assert td.revoke(db, user, row.id) is True
+        assert td.find_valid(db, user, token) is None

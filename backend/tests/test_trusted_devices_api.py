@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 import app.services.email as email
 import app.services.otp as otp
+from app.core.config import settings
 
 
 def _fixed(monkeypatch, code="123456"):
@@ -34,3 +35,34 @@ def test_list_and_revoke_trusted_devices(client: TestClient, make_user, monkeypa
         == 200
     )
     assert client.get("/api/v1/profile/trusted-devices", headers=headers).json() == []
+
+
+def test_revoke_others_keeps_current_device(client: TestClient, make_user, monkeypatch) -> None:
+    """revoke-others should drop the OTHER trusted device but keep the CURRENT one."""
+    _fixed(monkeypatch)
+    make_user("dv2", "Recruit123!", two_factor_enabled=True, two_factor_method="email")
+
+    # Two trusted logins -> two devices. Grab the raw trust token for the second
+    # login's device (returned directly in the verify response body) and send it
+    # explicitly as the trust cookie on the revoke-others call, since the
+    # TestClient's cookie jar normalizes the "testserver" host and won't round-trip
+    # a Secure cookie set by the app on its own.
+    _login_2fa_with_trust(client, "dv2", "Recruit123!")
+    tokens2 = _login_2fa_with_trust(client, "dv2", "Recruit123!")
+    headers = {"Authorization": f"Bearer {tokens2['access_token']}"}
+    current_trust_token = tokens2["trust_token"]
+    assert current_trust_token
+
+    devices_before = client.get("/api/v1/profile/trusted-devices", headers=headers).json()
+    assert len(devices_before) == 2
+    # list_devices orders by last_used_at desc, so the most recently created
+    # (second) login's device is first — that's the "current" device.
+    current_device_id = devices_before[0]["id"]
+
+    client.cookies.set(settings.trusted_device_cookie_name, current_trust_token)
+    resp = client.post("/api/v1/profile/trusted-devices/revoke-others", headers=headers)
+    assert resp.status_code == 200, resp.text
+
+    devices_after = client.get("/api/v1/profile/trusted-devices", headers=headers).json()
+    assert len(devices_after) == 1
+    assert devices_after[0]["id"] == current_device_id
