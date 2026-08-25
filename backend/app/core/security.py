@@ -1,6 +1,7 @@
 """Password hashing, JWT tokens, and TOTP-secret encryption."""
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -98,3 +99,17 @@ def decrypt_secret(ciphertext: str) -> str | None:
         return f.decrypt(ciphertext.encode()).decode()
     except (InvalidToken, ValueError):
         return None
+
+
+# ---- Opaque-token hashing (trusted devices) ----
+def hash_token(token: str) -> str:
+    """Deterministic sha256 hex of a high-entropy token, for indexed lookup."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+# ---- 2FA login challenge token ----
+def create_challenge_token(subject: str) -> str:
+    """Short-lived signed token proving 'password step passed, code pending'."""
+    return _create_token(
+        subject, "login_2fa", timedelta(minutes=settings.otp_ttl_minutes)
+    )

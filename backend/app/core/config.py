@@ -65,6 +65,17 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = ""  # must be on a domain verified in Resend
 
+    # 2FA — email one-time code
+    otp_code_length: int = 6
+    otp_ttl_minutes: int = 10
+    otp_max_attempts: int = 5
+    otp_resend_cooldown_seconds: int = 60
+    otp_max_resends: int = 3
+
+    # Trusted devices (skip the 2FA code on a known device)
+    trusted_device_ttl_days: int = 30
+    trusted_device_cookie_name: str = "det695_trust"
+
     # Cloudflare Turnstile secret (server-side verify). Empty disables verification
     # (local/dev) — set in production so the public form is bot-protected.
     turnstile_secret_key: str = ""
