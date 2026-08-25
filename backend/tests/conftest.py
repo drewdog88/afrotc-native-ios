@@ -126,6 +126,9 @@ def make_user() -> Callable[..., User]:
         totp_secret: str | None = None,
         totp_enabled: bool = False,
         totp_setup_completed: bool = False,
+        two_factor_method: str | None = None,
+        two_factor_enabled: bool = False,
+        two_factor_enrollment_prompted: bool = False,
     ) -> User:
         with TestingSessionLocal() as db:
             user = User(
@@ -143,6 +146,9 @@ def make_user() -> Callable[..., User]:
                 totp_secret=totp_secret,
                 totp_enabled=totp_enabled,
                 totp_setup_completed=totp_setup_completed,
+                two_factor_method=two_factor_method,
+                two_factor_enabled=two_factor_enabled,
+                two_factor_enrollment_prompted=two_factor_enrollment_prompted,
             )
             db.add(user)
             db.commit()

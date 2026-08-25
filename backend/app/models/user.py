@@ -45,6 +45,21 @@ class User(Base, TimestampMixin):
     totp_setup_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     can_enable_2fa: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Generic method-based 2FA. `email` is the only active method today;
+    # `totp` (the columns above) is reserved for the future and reuses the
+    # same enable/challenge/verify/admin/trust plumbing.
+    two_factor_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    two_factor_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    two_factor_enrollment_prompted: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Pending one-time code (email method) — used for enrollment and login.
+    otp_code_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    otp_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    otp_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    otp_resends: Mapped[int] = mapped_column(Integer, default=0)
+    otp_purpose: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    otp_last_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     activity_logs: Mapped[list[ActivityLog]] = relationship(back_populates="user")
     password_history: Mapped[list[PasswordHistory]] = relationship(back_populates="user")
 
@@ -70,7 +85,7 @@ class User(Base, TimestampMixin):
 
     @property
     def is_2fa_active(self) -> bool:
-        return self.totp_enabled and self.totp_setup_completed
+        return self.two_factor_enabled and self.two_factor_method is not None
 
 
 class PasswordHistory(Base):
