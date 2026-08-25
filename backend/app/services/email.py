@@ -66,3 +66,21 @@ def build_recruiter_notification(recruit) -> tuple[str, str]:
         "Open the recruiting dashboard to view this lead.",
     ]
     return subject, "\n".join(lines)
+
+
+def build_2fa_code_email(code: str) -> tuple[str, str]:
+    """Subject/body for a sign-in one-time code."""
+    subject = "Your AFROTC Det 695 sign-in code"
+    body = "\n".join(
+        [
+            f"Your one-time sign-in code is: {code}",
+            "",
+            "It expires shortly. If you didn't try to sign in, you can ignore this email.",
+        ]
+    )
+    return subject, body
+
+
+def send_2fa_code(to: str, code: str) -> bool:
+    subject, body = build_2fa_code_email(code)
+    return send_email(to, subject, body)
