@@ -1,23 +1,23 @@
-"""Profile + 2FA self-service lifecycle (any authenticated user)."""
+"""Profile + email 2FA self-service lifecycle (any authenticated user)."""
 
 from __future__ import annotations
 
-import pyotp
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
-from app.core.security import decrypt_secret, encrypt_secret
 from app.models import User
 from app.schemas.auth import UserOut
 from app.schemas.common import Message
 from app.schemas.profile import (
     ProfileUpdate,
-    TwoFASetupResponse,
+    TwoFAEnrollRequest,
     TwoFAStatus,
     TwoFAVerifyRequest,
 )
+from app.services import otp, trusted_devices
+from app.services.email import send_2fa_code
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -43,86 +43,74 @@ def update_profile(
     return user
 
 
-@router.get("/2fa", response_model=TwoFAStatus)
+@router.get("/2fa/status", response_model=TwoFAStatus)
 def get_2fa_status(user: User = Depends(get_current_user)) -> TwoFAStatus:
-    """Check if 2FA is enabled for the current user."""
-    return TwoFAStatus(enabled=user.totp_enabled and user.totp_setup_completed)
+    """Check 2FA enablement status for the current user."""
+    return TwoFAStatus(
+        enabled=user.is_2fa_active,
+        method=user.two_factor_method,
+        enrollment_prompted=user.two_factor_enrollment_prompted,
+    )
 
 
-@router.post("/2fa/setup", response_model=TwoFASetupResponse)
-def setup_2fa(
+@router.post("/2fa/enroll", response_model=Message)
+def enroll_2fa(
+    body: TwoFAEnrollRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> TwoFASetupResponse:
-    """Initiate 2FA setup — generate secret and return provisioning URI."""
+) -> Message:
+    """Begin email 2FA enrollment — sends a verification code, does not activate."""
     if not user.can_enable_2fa:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="2FA setup not allowed for this account",
+            status_code=status.HTTP_403_FORBIDDEN, detail="2FA not allowed for this account"
         )
-
-    # Generate fresh TOTP secret
-    secret = pyotp.random_base32()
-
-    # Store encrypted, mark as pending verification
-    user.totp_secret = encrypt_secret(secret)
-    user.totp_enabled = False
-    user.totp_setup_completed = False
+    if body.method != "email":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported 2FA method"
+        )
+    code = otp.issue_code(user, "enroll")
     db.commit()
-
-    # Return provisioning URI for QR code rendering on client
-    totp = pyotp.TOTP(secret)
-    otpauth_uri = totp.provisioning_uri(name=user.email, issuer_name="AFROTC Det 695")
-
-    return TwoFASetupResponse(secret=secret, otpauth_uri=otpauth_uri)
+    send_2fa_code(user.email, code)
+    return Message(detail="A verification code has been sent to your email")
 
 
-@router.post("/2fa/verify", response_model=Message)
-def verify_2fa(
+@router.post("/2fa/enroll/verify", response_model=Message)
+def verify_enroll_2fa(
     body: TwoFAVerifyRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Message:
-    """Verify TOTP code to complete 2FA setup."""
-    if not user.totp_secret:
+    """Verify the enrollment code and activate email 2FA."""
+    if not otp.verify_code(user, body.code, "enroll"):
+        db.commit()
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="2FA setup not initiated. Call POST /profile/2fa/setup first.",
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired code"
         )
-
-    # Decrypt stored secret
-    secret = decrypt_secret(user.totp_secret)
-    if not secret:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to decrypt TOTP secret",
-        )
-
-    # Verify code with 1-window tolerance (±30s)
-    totp = pyotp.TOTP(secret)
-    if not totp.verify(body.code, valid_window=1):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired 2FA code",
-        )
-
-    # Mark 2FA as fully enabled
-    user.totp_enabled = True
-    user.totp_setup_completed = True
+    user.two_factor_enabled = True
+    user.two_factor_method = "email"
+    user.two_factor_enrollment_prompted = True
     db.commit()
+    return Message(detail="Two-factor authentication enabled")
 
-    return Message(detail="2FA enabled successfully")
+
+@router.post("/2fa/enrollment-dismiss", response_model=Message)
+def dismiss_enrollment(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> Message:
+    """Mark the enrollment prompt as dismissed without enabling 2FA."""
+    user.two_factor_enrollment_prompted = True
+    db.commit()
+    return Message(detail="Enrollment prompt dismissed")
 
 
 @router.post("/2fa/disable", response_model=Message)
 def disable_2fa(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> Message:
-    """Disable 2FA for the current user."""
-    user.totp_secret = None
-    user.totp_enabled = False
-    user.totp_setup_completed = False
+    """Disable 2FA, clear any pending code, and revoke trusted devices."""
+    user.two_factor_enabled = False
+    user.two_factor_method = None
+    otp.clear_code(user)
+    trusted_devices.revoke_all(db, user)
     db.commit()
-
-    return Message(detail="2FA disabled successfully")
+    return Message(detail="Two-factor authentication disabled")

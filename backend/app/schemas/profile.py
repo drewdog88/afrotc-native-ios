@@ -17,19 +17,20 @@ class ProfileUpdate(BaseModel):
 
 
 class TwoFAStatus(ORMModel):
-    """2FA enablement status."""
+    """2FA enablement status for the current user."""
 
     enabled: bool
+    method: str | None = None
+    enrollment_prompted: bool = False
 
 
-class TwoFASetupResponse(BaseModel):
-    """Response when initiating 2FA setup — secret + provisioning URI."""
+class TwoFAEnrollRequest(BaseModel):
+    """Request to begin email 2FA enrollment."""
 
-    secret: str
-    otpauth_uri: str
+    method: str = "email"
 
 
 class TwoFAVerifyRequest(BaseModel):
-    """Verify TOTP code to complete 2FA setup."""
+    """Verify a one-time code to complete 2FA enrollment."""
 
     code: str
