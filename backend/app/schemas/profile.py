@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr
 
 from app.schemas.common import Message, ORMModel  # noqa: F401
@@ -34,3 +36,13 @@ class TwoFAVerifyRequest(BaseModel):
     """Verify a one-time code to complete 2FA enrollment."""
 
     code: str
+
+
+class TrustedDeviceOut(ORMModel):
+    """A trusted device that can skip 2FA until it expires or is revoked."""
+
+    id: int
+    device_label: str
+    created_at: datetime
+    last_used_at: datetime
+    expires_at: datetime

@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.core.database import get_db
 from app.models import User
 from app.schemas.auth import UserOut
 from app.schemas.common import Message
 from app.schemas.profile import (
     ProfileUpdate,
+    TrustedDeviceOut,
     TwoFAEnrollRequest,
     TwoFAStatus,
     TwoFAVerifyRequest,
@@ -114,3 +116,31 @@ def disable_2fa(
     trusted_devices.revoke_all(db, user)
     db.commit()
     return Message(detail="Two-factor authentication disabled")
+
+
+@router.get("/trusted-devices", response_model=list[TrustedDeviceOut])
+def list_trusted_devices(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> list:
+    """List active trusted devices for the current user."""
+    return trusted_devices.list_devices(db, user)
+
+
+@router.delete("/trusted-devices/{device_id}", response_model=Message)
+def revoke_trusted_device(
+    device_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> Message:
+    """Revoke a single trusted device by id."""
+    if not trusted_devices.revoke(db, user, device_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
+    return Message(detail="Device revoked")
+
+
+@router.post("/trusted-devices/revoke-others", response_model=Message)
+def revoke_other_trusted_devices(
+    request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> Message:
+    """Revoke all trusted devices except the one making this request, if any."""
+    current = request.cookies.get(settings.trusted_device_cookie_name)
+    n = trusted_devices.revoke_all(db, user, except_token=current)
+    return Message(detail=f"Revoked {n} device(s)")
