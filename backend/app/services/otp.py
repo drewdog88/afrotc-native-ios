@@ -21,19 +21,21 @@ def _set_code(user: User, purpose: str) -> str:
     code = generate_code()
     user.otp_code_hash = security.hash_password(code)
     user.otp_expires_at = security.now_utc() + timedelta(minutes=settings.otp_ttl_minutes)
-    user.otp_attempts = 0
     user.otp_purpose = purpose
     user.otp_last_sent_at = security.now_utc()
     return code
 
 
 def issue_code(user: User, purpose: str) -> str:
-    """Start a fresh challenge for `purpose` (resets the resend counter)."""
+    """Start a fresh challenge for `purpose` (resets attempts + resend counters)."""
+    user.otp_attempts = 0
     user.otp_resends = 0
     return _set_code(user, purpose)
 
 
 def can_resend(user: User) -> bool:
+    if user.otp_resends >= settings.otp_max_resends:
+        return False
     if user.otp_last_sent_at is None:
         return True
     elapsed = (security.now_utc() - user.otp_last_sent_at).total_seconds()
@@ -41,10 +43,14 @@ def can_resend(user: User) -> bool:
 
 
 def resend_code(user: User) -> str | None:
-    """Issue a new code for the current purpose, or None if capped / cooling down."""
+    """Issue a new code for the current purpose, or None if capped / cooling down.
+
+    The running `otp_attempts` count is preserved across resends — a resend is
+    part of the same challenge, so the verify-attempt budget must not reset.
+    """
     if user.otp_code_hash is None or user.otp_purpose is None:
         return None
-    if user.otp_resends >= settings.otp_max_resends or not can_resend(user):
+    if not can_resend(user):
         return None
     purpose = user.otp_purpose
     resends = user.otp_resends + 1

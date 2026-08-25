@@ -57,3 +57,22 @@ def test_resend_honors_cap(make_user: Callable[..., User]) -> None:
         assert otp.resend_code(user) is not None
     user.otp_last_sent_at = security.now_utc() - timedelta(seconds=61)
     assert otp.resend_code(user) is None  # 4th resend blocked by cap
+
+
+def test_resend_preserves_attempts(make_user: Callable[..., User]) -> None:
+    user = make_user("otp6")
+    otp.issue_code(user, "login")
+    assert otp.verify_code(user, "000000", "login") is False
+    assert user.otp_attempts == 1
+    user.otp_last_sent_at = security.now_utc() - timedelta(seconds=61)
+    assert otp.resend_code(user) is not None
+    assert user.otp_attempts == 1
+
+
+def test_can_resend_false_at_resend_cap(make_user: Callable[..., User]) -> None:
+    user = make_user("otp7")
+    otp.issue_code(user, "login")
+    for _ in range(3):
+        user.otp_last_sent_at = security.now_utc() - timedelta(seconds=61)
+        assert otp.resend_code(user) is not None
+    assert otp.can_resend(user) is False
