@@ -1,8 +1,8 @@
 /* Profile + security — self-service account settings for the signed-in user.
-   Three cards: view/edit profile (name, email, phone), change password (with a
-   client-side match check), and two-factor auth lifecycle. Enabling 2FA calls
-   /profile/2fa/setup to mint a TOTP secret, shows it as selectable monospace text
-   for manual entry into an authenticator app, then verifies the 6-digit code. */
+   Cards: view/edit profile (name, email, phone), change password (with a
+   client-side match check), email two-factor auth lifecycle, and (when 2FA is
+   on) trusted-device management. Enabling 2FA calls /profile/2fa/enroll to
+   email a 6-digit code, then /profile/2fa/enroll/verify to confirm it. */
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError, type UserOut } from "../lib/api";
@@ -12,12 +12,6 @@ import styles from "./Profile.module.css";
 
 type ProfileUpdate = components["schemas"]["ProfileUpdate"];
 type PasswordChange = components["schemas"]["PasswordChange"];
-type TwoFAStatus = components["schemas"]["TwoFAStatus"];
-// TOTP `TwoFASetupResponse` was removed from the contract by the email-2FA
-// backend. Local shim so the (now-dead) TOTP card compiles until Task 10
-// replaces this card with the email-2FA + trusted-devices UI.
-type TwoFASetupResponse = { secret: string; otpauth_uri: string };
-type TwoFAVerifyRequest = components["schemas"]["TwoFAVerifyRequest"];
 
 type Toast = { kind: "ok" | "error"; msg: string } | null;
 
@@ -51,6 +45,14 @@ export function Profile() {
 
   const user = profileQ.data;
 
+  // Shared with TwoFactorCard's own query (same key, same cache entry) so the
+  // parent can decide whether to show the Trusted devices card without an
+  // extra round trip.
+  const twoFAQ = useQuery({
+    queryKey: ["profile-2fa"],
+    queryFn: () => api.twoFAStatus(),
+  });
+
   return (
     <div className={styles.page}>
       <div className={styles.head}>
@@ -73,6 +75,7 @@ export function Profile() {
           <ProfileCard user={user} notify={notify} />
           <PasswordCard notify={notify} />
           <TwoFactorCard notify={notify} />
+          {twoFAQ.data?.enabled && <TrustedDevicesCard />}
         </>
       )}
 
@@ -282,15 +285,15 @@ function PasswordCard({ notify }: { notify: (k: "ok" | "error", m: string) => vo
   );
 }
 
-/* ---- Two-factor authentication lifecycle ---- */
+/* ---- Two-factor authentication lifecycle (email-based) ---- */
 function TwoFactorCard({ notify }: { notify: (k: "ok" | "error", m: string) => void }) {
   const qc = useQueryClient();
-  const [setup, setSetup] = useState<TwoFASetupResponse | null>(null);
+  const [awaitingCode, setAwaitingCode] = useState(false);
   const [code, setCode] = useState("");
 
   const statusQ = useQuery({
     queryKey: ["profile-2fa"],
-    queryFn: () => api.get<TwoFAStatus>("/profile/2fa"),
+    queryFn: () => api.twoFAStatus(),
   });
   const enabled = statusQ.data?.enabled ?? false;
 
@@ -299,40 +302,40 @@ function TwoFactorCard({ notify }: { notify: (k: "ok" | "error", m: string) => v
     qc.invalidateQueries({ queryKey: ["profile"] });
   };
 
-  const beginSetup = useMutation({
-    mutationFn: () => api.post<TwoFASetupResponse>("/profile/2fa/setup"),
-    onSuccess: (res) => {
-      setSetup(res);
+  const enroll = useMutation({
+    mutationFn: () => api.twoFAEnroll(),
+    onSuccess: () => {
+      setAwaitingCode(true);
       setCode("");
     },
-    onError: (err) => notify("error", errMsg(err, "Couldn't start two-factor setup.")),
+    onError: (err) => notify("error", errMsg(err, "Couldn't start email two-factor setup.")),
   });
 
   const verify = useMutation({
-    mutationFn: (body: TwoFAVerifyRequest) => api.post("/profile/2fa/verify", body),
+    mutationFn: (c: string) => api.twoFAEnrollVerify(c),
     onSuccess: () => {
-      setSetup(null);
+      setAwaitingCode(false);
       setCode("");
       invalidate();
-      notify("ok", "Two-factor authentication is on.");
+      notify("ok", "Email two-factor authentication is on.");
     },
     onError: (err) => notify("error", errMsg(err, "That code didn't verify. Try the current one.")),
   });
 
   const disable = useMutation({
-    mutationFn: () => api.post("/profile/2fa/disable"),
+    mutationFn: () => api.twoFADisable(),
     onSuccess: () => {
-      setSetup(null);
+      setAwaitingCode(false);
       setCode("");
       invalidate();
-      notify("ok", "Two-factor authentication is off.");
+      notify("ok", "Email two-factor authentication is off.");
     },
     onError: (err) => notify("error", errMsg(err, "Couldn't turn off two-factor authentication.")),
   });
 
   function onVerify(e: FormEvent) {
     e.preventDefault();
-    verify.mutate({ code: code.trim() });
+    verify.mutate(code.trim());
   }
 
   return (
@@ -340,7 +343,7 @@ function TwoFactorCard({ notify }: { notify: (k: "ok" | "error", m: string) => v
       <div className={styles.panelHead}>
         <div>
           <h2 className={styles.panelTitle}>Two-factor authentication</h2>
-          <span className={styles.panelNote}>Add a time-based code from an authenticator app on top of your password.</span>
+          <span className={styles.panelNote}>Get a one-time code by email on top of your password.</span>
         </div>
         {!statusQ.isLoading && (
           <span className={`${styles.badge} ${enabled ? styles.badgeOn : styles.badgeOff}`}>
@@ -355,31 +358,18 @@ function TwoFactorCard({ notify }: { notify: (k: "ok" | "error", m: string) => v
       ) : enabled ? (
         <div className={styles.stack}>
           <p className={styles.note}>
-            Your account is protected. You'll be asked for a 6-digit code when you sign in.
+            Email 2FA is on. You'll be emailed a 6-digit code when you sign in from a device you
+            haven't trusted. Turning it off also signs out all of your trusted devices.
           </p>
           <div className={styles.actions}>
-            <button
-              className="btn btn-ghost"
-              onClick={() => disable.mutate()}
-              disabled={disable.isPending}
-            >
-              {disable.isPending ? "Turning off…" : "Turn off two-factor"}
+            <button className="btn btn-ghost" onClick={() => disable.mutate()} disabled={disable.isPending}>
+              {disable.isPending ? "Turning off…" : "Turn off"}
             </button>
           </div>
         </div>
-      ) : setup ? (
+      ) : awaitingCode ? (
         <form className={styles.stack} onSubmit={onVerify}>
-          <p className={styles.note}>
-            Add this account to your authenticator app, then enter the 6-digit code it shows to finish.
-          </p>
-          <div className={styles.field}>
-            <span className="field-label">Manual entry key</span>
-            <code className={styles.secret}>{setup.secret}</code>
-          </div>
-          <div className={styles.field}>
-            <span className="field-label">Setup URI (otpauth)</span>
-            <code className={styles.uri}>{setup.otpauth_uri}</code>
-          </div>
+          <p className={styles.note}>We emailed a 6-digit code to your address. Enter it below to finish.</p>
           <div className={styles.field}>
             <label className="field-label" htmlFor="tfa_code">6-digit code</label>
             <input
@@ -399,7 +389,7 @@ function TwoFactorCard({ notify }: { notify: (k: "ok" | "error", m: string) => v
               type="button"
               className="btn btn-ghost"
               onClick={() => {
-                setSetup(null);
+                setAwaitingCode(false);
                 setCode("");
               }}
               disabled={verify.isPending}
@@ -414,17 +404,79 @@ function TwoFactorCard({ notify }: { notify: (k: "ok" | "error", m: string) => v
       ) : (
         <div className={styles.stack}>
           <p className={styles.note}>
-            Two-factor is off. Turn it on to require a rotating code from your phone at sign-in.
+            Email 2FA is off. Turn it on to require a one-time email code at sign-in.
           </p>
           <div className={styles.actions}>
-            <button
-              className="btn btn-accent"
-              onClick={() => beginSetup.mutate()}
-              disabled={beginSetup.isPending}
-            >
-              {beginSetup.isPending ? "Preparing…" : "Set up two-factor"}
+            <button className="btn btn-accent" onClick={() => enroll.mutate()} disabled={enroll.isPending}>
+              {enroll.isPending ? "Sending code…" : "Enable email 2FA"}
             </button>
           </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ---- Trusted devices: list + per-row / bulk revoke ---- */
+function TrustedDevicesCard() {
+  const qc = useQueryClient();
+  const devicesQ = useQuery({
+    queryKey: ["trusted-devices"],
+    queryFn: () => api.listTrustedDevices(),
+  });
+  const revoke = useMutation({
+    mutationFn: (id: number) => api.revokeTrustedDevice(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["trusted-devices"] }),
+  });
+  const revokeOthers = useMutation({
+    mutationFn: () => api.revokeOtherTrustedDevices(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["trusted-devices"] }),
+  });
+  const devices = devicesQ.data ?? [];
+
+  return (
+    <section className={`card ${styles.panel}`}>
+      <div className={styles.panelHead}>
+        <div>
+          <h2 className={styles.panelTitle}>Trusted devices</h2>
+          <span className={styles.panelNote}>
+            Devices that can skip the email code until they expire or are revoked.
+          </span>
+        </div>
+      </div>
+
+      {devicesQ.isLoading ? (
+        <div className={styles.skeleton} style={{ height: 72, borderRadius: "var(--r-md)" }} />
+      ) : devices.length === 0 ? (
+        <p className={styles.note}>No trusted devices.</p>
+      ) : (
+        <ul className={styles.stack} style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          {devices.map((d) => (
+            <li key={d.id} className={styles.field}>
+              <div className={styles.fieldValue}>{d.device_label}</div>
+              <span className={styles.panelNote}>
+                Last used {new Date(d.last_used_at).toLocaleString()} · Expires{" "}
+                {new Date(d.expires_at).toLocaleDateString()}
+              </span>
+              <div className={styles.actions} style={{ justifyContent: "flex-start", marginTop: "var(--sp-2)" }}>
+                <button className="btn btn-ghost" onClick={() => revoke.mutate(d.id)} disabled={revoke.isPending}>
+                  Revoke
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {devices.length > 1 && (
+        <div className={styles.actions}>
+          <button
+            className="btn btn-ghost"
+            onClick={() => revokeOthers.mutate()}
+            disabled={revokeOthers.isPending}
+          >
+            {revokeOthers.isPending ? "Revoking…" : "Revoke all other devices"}
+          </button>
         </div>
       )}
     </section>
