@@ -35,6 +35,17 @@ export type IntakeSettingsOut = Schemas["IntakeSettingsOut"];
 export type IntakeSettingsUpdate = Schemas["IntakeSettingsUpdate"];
 export type TwoFAStatus = Schemas["TwoFAStatus"];
 export type TrustedDeviceOut = Schemas["TrustedDeviceOut"];
+// Local structural type (the OpenAPI generator isn't re-run for this client;
+// see TokenPair above for the same pattern).
+export type SessionOut = {
+  id: number;
+  device_label: string;
+  ip_address: string | null;
+  created_at: string;
+  last_seen_at: string;
+  expires_at: string;
+  current: boolean;
+};
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api/v1";
 const ACCESS_KEY = "det695.access";
@@ -246,4 +257,9 @@ export const api = {
       method: "POST",
       body: { trust_token: trust.get() ?? undefined },
     }),
+
+  // Profile session tracking.
+  listSessions: () => request<SessionOut[]>("/profile/sessions"),
+  revokeSession: (id: number) => request<void>(`/profile/sessions/${id}`, { method: "DELETE" }),
+  revokeOtherSessions: () => request<void>("/profile/sessions/revoke-others", { method: "POST" }),
 };
