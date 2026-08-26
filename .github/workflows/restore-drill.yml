@@ -100,7 +100,7 @@ jobs:
       - name: Verify schema + data
         run: |
           set -euo pipefail
-          EXPECTED="activity_log cadet external_link follow_up intake_settings password_history potential_recruit recruit_stage_event recruitment_document recruitment_event trusted_devices university_contact users"
+          EXPECTED="activity_log auth_sessions cadet external_link follow_up intake_settings password_history potential_recruit recruit_stage_event recruitment_document recruitment_event trusted_devices university_contact users"
           {
             echo "## Restore drill — $TAG"
             echo ""

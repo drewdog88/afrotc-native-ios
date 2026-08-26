@@ -48,7 +48,7 @@ flowchart TD
     START(["⏰ Mondays 0 10 * * 1 UTC<br>(or on demand)"]) --> PULL["fetch chosen backup<br>(blank = newest)"]
     PULL --> SPIN["🐳 spin up postgres:17<br>throwaway container"]
     SPIN --> RESTORE["pg_restore into container"]
-    RESTORE --> CHECK{"all 13 tables present<br>AND users not empty?"}
+    RESTORE --> CHECK{"all 14 tables present<br>AND users not empty?"}
     CHECK -->|"Yes"| GREEN(["✅ green — restorable<br>row counts in summary"])
     CHECK -->|"No"| RED(["❌ open/dedupe<br>restore-drill-failure issue"])
 
@@ -62,7 +62,7 @@ flowchart TD
 
 - Runs **Mondays** (`0 10 * * 1` UTC) and on demand (optional `tag` input; blank = newest).
 - Restores the chosen backup into a **throwaway `postgres:17` container in CI** — never the live Neon DB, zero risk.
-- Asserts all **13 expected tables** are present (including `trusted_devices` for email 2FA), writes a per-table row-count to the run Summary, and **fails loudly if `users` is empty** (a restore nobody could log into). On failure it opens/dedupes a `restore-drill-failure` issue.
+- Asserts all **14 expected tables** are present (including `trusted_devices` and `auth_sessions`), writes a per-table row-count to the run Summary, and **fails loudly if `users` is empty** (a restore nobody could log into). On failure it opens/dedupes a `restore-drill-failure` issue.
 
 Green summary = restorable. A red drill means the newest backup is suspect — investigate before you need it.
 
