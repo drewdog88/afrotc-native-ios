@@ -229,6 +229,8 @@ export const api = {
   getIntakeSettings: () => request<IntakeSettingsOut>("/admin/intake-settings"),
   updateIntakeSettings: (body: IntakeSettingsUpdate) =>
     request<IntakeSettingsOut>("/admin/intake-settings", { method: "PUT", body }),
+  adminRevokeTrustedDevices: (userId: number) =>
+    request<{ detail: string }>(`/admin/users/${userId}/revoke-trusted-devices`, { method: "POST" }),
 
   // Profile 2FA settings + trusted-device management.
   twoFAStatus: () => request<TwoFAStatus>("/profile/2fa/status"),
