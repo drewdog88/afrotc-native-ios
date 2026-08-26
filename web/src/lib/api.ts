@@ -33,6 +33,8 @@ export type IntakeOptions = Schemas["IntakeOptions"];
 export type IntakeSubmitResult = Schemas["IntakeSubmitResult"];
 export type IntakeSettingsOut = Schemas["IntakeSettingsOut"];
 export type IntakeSettingsUpdate = Schemas["IntakeSettingsUpdate"];
+export type TwoFAStatus = Schemas["TwoFAStatus"];
+export type TrustedDeviceOut = Schemas["TrustedDeviceOut"];
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api/v1";
 const ACCESS_KEY = "det695.access";
@@ -227,4 +229,19 @@ export const api = {
   getIntakeSettings: () => request<IntakeSettingsOut>("/admin/intake-settings"),
   updateIntakeSettings: (body: IntakeSettingsUpdate) =>
     request<IntakeSettingsOut>("/admin/intake-settings", { method: "PUT", body }),
+
+  // Profile 2FA settings + trusted-device management.
+  twoFAStatus: () => request<TwoFAStatus>("/profile/2fa/status"),
+  twoFAEnroll: () => request<void>("/profile/2fa/enroll", { method: "POST", body: { method: "email" } }),
+  twoFAEnrollVerify: (code: string) =>
+    request<void>("/profile/2fa/enroll/verify", { method: "POST", body: { code } }),
+  twoFAEnrollmentDismiss: () => request<void>("/profile/2fa/enrollment-dismiss", { method: "POST" }),
+  twoFADisable: () => request<void>("/profile/2fa/disable", { method: "POST" }),
+  listTrustedDevices: () => request<TrustedDeviceOut[]>("/profile/trusted-devices"),
+  revokeTrustedDevice: (id: number) => request<void>(`/profile/trusted-devices/${id}`, { method: "DELETE" }),
+  revokeOtherTrustedDevices: () =>
+    request<void>("/profile/trusted-devices/revoke-others", {
+      method: "POST",
+      body: { trust_token: trust.get() ?? undefined },
+    }),
 };
