@@ -1,34 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, trust } from "./api";
 
-// Node 22+'s built-in `localStorage` global collides with jsdom 25's window
-// shim: without a `--localstorage-file` path, Node's Storage stub is a
-// frozen, method-less object, so jsdom's window.localStorage (which
-// delegates to it) has no getItem/setItem/clear on this toolchain. Polyfill
-// an in-memory Storage for this file only so localStorage assertions work.
-function createMemoryStorage(): Storage {
-  const store = new Map<string, string>();
-  return {
-    getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
-    setItem: (k: string, v: string) => {
-      store.set(k, String(v));
-    },
-    removeItem: (k: string) => {
-      store.delete(k);
-    },
-    clear: () => {
-      store.clear();
-    },
-    key: (i: number) => Array.from(store.keys())[i] ?? null,
-    get length() {
-      return store.size;
-    },
-  } as Storage;
-}
-
-if (typeof localStorage === "undefined" || typeof localStorage.clear !== "function") {
-  vi.stubGlobal("localStorage", createMemoryStorage());
-}
+// localStorage polyfill for the Node/jsdom toolchain lives in src/test/setup.ts.
 
 function mockFetchOnce(status: number, body: unknown) {
   return vi.fn().mockResolvedValue({
