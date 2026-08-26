@@ -7,7 +7,8 @@ import Foundation
 struct LoginRequest: Encodable {
     let username: String
     let password: String
-    let totpCode: String?
+    let totpCode: String?          // legacy; leave for compat, always nil now
+    var trustToken: String? = nil
 }
 
 struct RefreshRequest: Encodable {
@@ -21,6 +22,44 @@ struct TokenPair: Decodable {
     var tokenType: String = "bearer"
 }
 
+/// POST /auth/refresh — the backend returns a fresh access token only; the
+/// refresh token is not rotated, so the client keeps its stored one.
+struct AccessToken: Decodable {
+    let accessToken: String
+    var tokenType: String = "bearer"
+}
+
+struct LoginResponse: Decodable {
+    let accessToken: String?
+    let refreshToken: String?
+    var tokenType: String = "bearer"
+    var forcePasswordChange: Bool = false
+    var twoFactorRequired: Bool = false
+    var method: String?
+    var challengeToken: String?
+}
+
+enum LoginOutcome {
+    case authenticated(TokenPair)
+    case challenge(token: String, method: String)
+}
+
+struct LoginVerifyInput: Encodable {
+    let challengeToken: String
+    let code: String
+    let trustDevice: Bool
+}
+
+struct LoginVerifyResponse: Decodable {
+    let accessToken: String
+    let refreshToken: String
+    var tokenType: String = "bearer"
+    var forcePasswordChange: Bool = false
+    var trustToken: String?
+}
+
+struct ResendInput: Encodable { let challengeToken: String }
+
 struct UserOut: Decodable, Identifiable {
     let id: Int
     let username: String
@@ -33,6 +72,10 @@ struct UserOut: Decodable, Identifiable {
     let isAdmin: Bool
     var phone: String?
     var isLocked: Bool = false  // defaulted so older payloads still decode
+    var twoFactorEnabled: Bool = false
+    var twoFactorMethod: String? = nil
+    var twoFactorEnrollmentPrompted: Bool = false
+    var is2faActive: Bool = false
 }
 
 // MARK: - Password reset (security-question flow)
