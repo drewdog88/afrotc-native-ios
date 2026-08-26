@@ -78,7 +78,7 @@ export function LoginVerify() {
         </label>
         <input
           id="code"
-          className="input"
+          className="input otp-input"
           inputMode="numeric"
           autoComplete="one-time-code"
           maxLength={6}

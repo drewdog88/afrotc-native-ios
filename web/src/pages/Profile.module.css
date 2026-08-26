@@ -131,12 +131,6 @@
   background: var(--muted);
 }
 
-.codeInput {
-  font-family: var(--font-mono);
-  letter-spacing: 0.4em;
-  max-width: 200px;
-}
-
 /* ---- Toast ---- */
 .toast {
   position: fixed;

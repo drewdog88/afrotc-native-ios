@@ -148,3 +148,10 @@ button {
   color: var(--ink-2);
   margin-bottom: var(--sp-2);
 }
+
+.otp-input {
+  font-family: var(--font-mono);
+  letter-spacing: 0.4em;
+  text-align: center;
+  max-width: 220px;
+}

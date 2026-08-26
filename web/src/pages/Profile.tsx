@@ -381,7 +381,7 @@ function TwoFactorCard({ notify }: { notify: (k: "ok" | "error", m: string) => v
             <label className="field-label" htmlFor="tfa_code">6-digit code</label>
             <input
               id="tfa_code"
-              className={`input ${styles.codeInput}`}
+              className="input otp-input"
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               inputMode="numeric"
