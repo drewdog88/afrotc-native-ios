@@ -5,21 +5,22 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_session, get_current_user
 from app.core.config import settings
 from app.core.database import get_db
-from app.models import User
+from app.models import AuthSession, User
 from app.schemas.auth import UserOut
 from app.schemas.common import Message
 from app.schemas.profile import (
     ProfileUpdate,
     RevokeOthersRequest,
+    SessionOut,
     TrustedDeviceOut,
     TwoFAEnrollRequest,
     TwoFAStatus,
     TwoFAVerifyRequest,
 )
-from app.services import otp, trusted_devices
+from app.services import otp, sessions, trusted_devices
 from app.services.email import send_2fa_code
 
 router = APIRouter(prefix="/profile", tags=["profile"])
@@ -154,3 +155,38 @@ def revoke_other_trusted_devices(
     current = (body.trust_token if body else None) or cookie_token
     n = trusted_devices.revoke_all(db, user, except_token=current)
     return Message(detail=f"Revoked {n} device(s)")
+
+
+@router.get("/sessions", response_model=list[SessionOut])
+def list_sessions(
+    current: AuthSession = Depends(get_current_session),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[SessionOut]:
+    return [
+        SessionOut(
+            id=s.id, device_label=s.device_label, ip_address=s.ip_address,
+            created_at=s.created_at, last_seen_at=s.last_seen_at, expires_at=s.expires_at,
+            current=(s.sid == current.sid),
+        )
+        for s in sessions.list_active(db, user)
+    ]
+
+
+@router.delete("/sessions/{session_id}", response_model=Message)
+def revoke_session(
+    session_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> Message:
+    if not sessions.revoke(db, user, session_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    return Message(detail="Signed out that device")
+
+
+@router.post("/sessions/revoke-others", response_model=Message)
+def revoke_other_sessions(
+    current: AuthSession = Depends(get_current_session),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Message:
+    n = sessions.revoke_others(db, user, current.sid)
+    return Message(detail=f"Signed out {n} other device(s)")

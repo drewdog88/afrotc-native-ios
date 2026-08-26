@@ -52,3 +52,15 @@ class RevokeOthersRequest(BaseModel):
     """Optional body for revoke-others, for cookieless (web) clients."""
 
     trust_token: str | None = None
+
+
+class SessionOut(BaseModel):
+    """An active signed-in device/session. `sid` is intentionally never exposed."""
+
+    id: int
+    device_label: str
+    ip_address: str | None = None
+    created_at: datetime
+    last_seen_at: datetime
+    expires_at: datetime
+    current: bool = False
