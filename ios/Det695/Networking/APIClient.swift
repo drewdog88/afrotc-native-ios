@@ -49,15 +49,57 @@ actor APIClient {
         Keychain.set(nil, for: refreshKey)
     }
 
+    /// Trusted-device token — a long-lived opaque credential that lets a
+    /// recognized device skip the 2FA challenge on future logins.
+    func storedTrustToken() -> String? { Keychain.get("trust") }
+    func setTrustToken(_ t: String) { Keychain.set(t, for: "trust") }
+
     // MARK: - Public API
 
+    /// Step 1 of login. Returns `.authenticated` immediately when no 2FA
+    /// challenge is required (or the attached trust token satisfies it),
+    /// otherwise `.challenge` — the caller then calls `loginVerify`.
     @discardableResult
-    func login(username: String, password: String, totpCode: String? = nil) async throws -> TokenPair {
-        let body = LoginRequest(username: username, password: password, totpCode: totpCode)
-        let pair: TokenPair = try await requestJSON("/auth/login", method: "POST",
-                                                     bodyData: try encoder.encode(body), authed: false)
+    func login(username: String, password: String) async throws -> LoginOutcome {
+        let body = LoginRequest(username: username, password: password, totpCode: nil,
+                                 trustToken: storedTrustToken())
+        let resp: LoginResponse = try await requestJSON(
+            "/auth/login", method: "POST", bodyData: try encoder.encode(body), authed: false
+        )
+        if resp.twoFactorRequired {
+            return .challenge(token: resp.challengeToken ?? "", method: resp.method ?? "email")
+        }
+        let pair = TokenPair(
+            accessToken: resp.accessToken ?? "",
+            refreshToken: resp.refreshToken ?? "",
+            forcePasswordChange: resp.forcePasswordChange,
+            tokenType: resp.tokenType
+        )
         store(pair)
-        return pair
+        return .authenticated(pair)
+    }
+
+    /// Step 2 of login — submit the emailed code for the challenge issued by
+    /// `login`. On success, stores the token pair and (if the device was
+    /// marked trusted) the new trust token.
+    func loginVerify(challengeToken: String, code: String, trustDevice: Bool) async throws {
+        let body = LoginVerifyInput(challengeToken: challengeToken, code: code, trustDevice: trustDevice)
+        let resp: LoginVerifyResponse = try await requestJSON(
+            "/auth/login/verify", method: "POST", bodyData: try encoder.encode(body), authed: false
+        )
+        store(TokenPair(
+            accessToken: resp.accessToken, refreshToken: resp.refreshToken,
+            forcePasswordChange: resp.forcePasswordChange, tokenType: resp.tokenType
+        ))
+        if let t = resp.trustToken { setTrustToken(t) }
+    }
+
+    /// Re-send the 2FA code for an in-flight login challenge.
+    func loginResend(challengeToken: String) async throws {
+        _ = try await requestData(
+            "/auth/login/resend", method: "POST",
+            bodyData: try encoder.encode(ResendInput(challengeToken: challengeToken)), authed: false
+        )
     }
 
     func logout() async {
@@ -101,20 +143,44 @@ actor APIClient {
     }
 
     func twoFAStatus() async throws -> TwoFAStatus {
-        try await requestJSON("/profile/2fa", method: "GET", bodyData: nil, authed: true)
+        try await requestJSON("/profile/2fa/status", method: "GET", bodyData: nil, authed: true)
     }
 
-    func twoFASetup() async throws -> TwoFASetupResponse {
-        try await requestJSON("/profile/2fa/setup", method: "POST", bodyData: nil, authed: true)
+    /// Begin email-2FA enrollment.
+    func enroll() async throws {
+        _ = try await requestData("/profile/2fa/enroll", method: "POST",
+                                  bodyData: try encoder.encode(TwoFAEnrollInput(method: "email")), authed: true)
     }
 
-    func twoFAVerify(_ body: TwoFAVerifyInput) async throws {
-        _ = try await requestData("/profile/2fa/verify", method: "POST",
-                                  bodyData: try encoder.encode(body), authed: true)
+    /// Confirm enrollment with the emailed code.
+    func enrollVerify(code: String) async throws {
+        _ = try await requestData("/profile/2fa/enroll/verify", method: "POST",
+                                  bodyData: try encoder.encode(TwoFAEnrollVerifyInput(code: code)), authed: true)
     }
 
-    func twoFADisable() async throws {
+    /// Dismiss the enrollment nudge without enabling 2FA.
+    func enrollmentDismiss() async throws {
+        _ = try await requestData("/profile/2fa/enrollment-dismiss", method: "POST", bodyData: nil, authed: true)
+    }
+
+    func disable2FA() async throws {
         _ = try await requestData("/profile/2fa/disable", method: "POST", bodyData: nil, authed: true)
+    }
+
+    func listTrustedDevices() async throws -> [TrustedDevice] {
+        try await requestJSON("/profile/trusted-devices", method: "GET", bodyData: nil, authed: true)
+    }
+
+    func revokeTrustedDevice(id: Int) async throws {
+        _ = try await requestData("/profile/trusted-devices/\(id)", method: "DELETE", bodyData: nil, authed: true)
+    }
+
+    /// Revoke every trusted device except the one currently in use (identified
+    /// by the trust token this client is carrying, if any).
+    func revokeOtherTrustedDevices() async throws {
+        struct Body: Encodable { let trustToken: String? }
+        _ = try await requestData("/profile/trusted-devices/revoke-others", method: "POST",
+                                  bodyData: try encoder.encode(Body(trustToken: storedTrustToken())), authed: true)
     }
 
     func dashboardStats() async throws -> DashboardStats {
@@ -313,6 +379,13 @@ actor APIClient {
         _ = try await requestData("/admin/users/\(id)", method: "DELETE", bodyData: nil, authed: true)
     }
 
+    /// Admin action — revoke all of a user's trusted devices (e.g. after a
+    /// suspected compromise), forcing 2FA on their next login.
+    func adminRevokeTrustedDevices(userId: Int) async throws {
+        _ = try await requestData("/admin/users/\(userId)/revoke-trusted-devices", method: "POST",
+                                  bodyData: nil, authed: true)
+    }
+
     func adminActivity(skip: Int = 0, limit: Int = 25) async throws -> Page<ActivityLogOut> {
         let q = [URLQueryItem(name: "skip", value: String(skip)),
                  URLQueryItem(name: "limit", value: String(limit))]
@@ -482,8 +555,12 @@ actor APIClient {
             let body = try encoder.encode(RefreshRequest(refreshToken: refresh))
             let data = try await requestData("/auth/refresh", method: "POST",
                                              bodyData: body, authed: false, retry: false)
-            let pair = try decoder.decode(TokenPair.self, from: data)
-            store(pair)
+            // The backend returns an access-only token — the refresh token is
+            // not rotated — so only the access Keychain entry is updated here.
+            // Calling `store(...)` would overwrite (wipe) the still-valid
+            // refresh token with an empty one.
+            let token = try decoder.decode(AccessToken.self, from: data)
+            Keychain.set(token.accessToken, for: accessKey)
             return true
         } catch {
             clearTokens()
