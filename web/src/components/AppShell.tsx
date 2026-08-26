@@ -3,7 +3,7 @@
    <Outlet />. Nav is flat (single shared dashboard for everyone, per the plan). */
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { EnrollmentPrompt } from "./EnrollmentPrompt";
+import { EnrollmentBanner } from "./EnrollmentBanner";
 import { Insignia } from "./Insignia";
 import styles from "./AppShell.module.css";
 
@@ -140,10 +140,10 @@ export function AppShell() {
           </div>
         </header>
         <main className={styles.content}>
+          <EnrollmentBanner />
           <Outlet />
         </main>
       </div>
-      <EnrollmentPrompt />
     </div>
   );
 }
