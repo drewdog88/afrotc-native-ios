@@ -48,7 +48,7 @@ This is a real, deployed system — not a prototype. It ships to production on f
 | 🗺️ | **Territory map** of geocoded Pacific-Northwest schools and contacts |
 | 📊 | **Live analytics** — funnel conversion, trends, and a commander's dashboard fed from the event stream |
 | 📱 | **Native iPhone app** *and* a browser app, built against the **same API contract** — never out of sync |
-| 🔒 | **Real security** — JWT auth, bcrypt + password policy, Fernet-encrypted TOTP 2FA, hardened CSP |
+| 🔒 | **Real security** — JWT auth, bcrypt + password policy, opt-in **email 2FA** (emailed codes + trusted devices), hardened CSP |
 | 💾 | **Disaster-ready** — nightly `pg_dump` backups and an automated weekly restore drill that fails loudly if a backup is bad |
 
 </div>

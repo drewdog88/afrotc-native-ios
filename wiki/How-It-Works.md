@@ -106,9 +106,14 @@ sequenceDiagram
         API-->>C: 401 Unauthorized
     else Account locked / disabled
         API-->>C: 403 Forbidden
-    else 2FA enabled, TOTP missing/wrong
-        API-->>C: 401 (TOTP required)
-    else Valid
+    else Email 2FA active, no trusted device
+        API->>DB: Store bcrypt-hashed code
+        API->>U: Email 6-digit code
+        API-->>C: 200 {two_factor_required, challenge_token}
+        U->>C: Enter code (+ optionally "trust this device")
+        C->>+API: POST /auth/login/verify {challenge_token, code, trust_device}
+        API-->>-C: 200 {access_token, refresh_token, trust_token?}
+    else Valid (no 2FA, or trusted device)
         API->>API: Sign access + refresh JWT (HS256)
         API-->>-C: 200 {access_token, refresh_token}
         C->>C: Store tokens<br>Keychain (iOS) / browser (web)
@@ -123,7 +128,7 @@ sequenceDiagram
     API-->>-C: 200 dashboard payload
 ```
 
-> **Security notes.** Passwords are bcrypt-hashed with a lockout after `MAX_FAILED_LOGINS`, reuse blocked against the last `PASSWORD_HISTORY_SIZE` hashes, and an expiry policy (`PASSWORD_EXPIRY_DAYS`, admins exempt). TOTP 2FA secrets are **Fernet-encrypted at rest** with `ENCRYPTION_KEY` — the app fails closed if that key is unset.
+> **Security notes.** Passwords are bcrypt-hashed with a lockout after `MAX_FAILED_LOGINS`, reuse blocked against the last `PASSWORD_HISTORY_SIZE` hashes, and an expiry policy (`PASSWORD_EXPIRY_DAYS`, admins exempt). Email 2FA is opt-in (with a one-time enrollment prompt after first login): a random code is emailed via Resend and only its **bcrypt hash** is stored — never the code — with a 10-minute expiry, 5 verification attempts, and a rate-limited resend. Trusted devices skip the code for 30 days and are individually revocable. *(An authenticator-app / TOTP method is scaffolded but dormant; its `totp_secret` would be Fernet-encrypted at rest with `ENCRYPTION_KEY`.)*
 
 ---
 

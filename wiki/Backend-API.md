@@ -17,7 +17,7 @@ Interactive OpenAPI docs at `/docs`; the exported contract lives at `shared/open
 
 ## Stack
 
-FastAPI (`>=0.115`) · Uvicorn · SQLAlchemy 2.0 · Alembic · Pydantic v2 / pydantic-settings · psycopg 3 · python-jose (JWT) · bcrypt · pyotp (TOTP) · cryptography (Fernet) · pandas + openpyxl + reportlab (import/export). Python **≥ 3.11**, managed with **uv**.
+FastAPI (`>=0.115`) · Uvicorn · SQLAlchemy 2.0 · Alembic · Pydantic v2 / pydantic-settings · psycopg 3 · python-jose (JWT) · bcrypt · Resend (email-2FA codes + intake notifications) · cryptography (Fernet) + pyotp *(retained for the dormant TOTP scaffold)* · pandas + openpyxl + reportlab (import/export). Python **≥ 3.11**, managed with **uv**.
 
 ## Run it
 
@@ -93,7 +93,9 @@ flowchart LR
 Everything requires `Authorization: Bearer <jwt>` except `POST /auth/login` and `POST /auth/refresh`.
 
 **Auth** (`/auth`)
-- `POST /auth/login` — credentials (+ optional TOTP) → access + refresh token pair; handles lockout, disabled accounts, forced password change.
+- `POST /auth/login` — credentials → **either** an access + refresh token pair **or**, when email 2FA is active and the request carries no valid trusted-device token, a two-factor challenge `{two_factor_required: true, method, challenge_token}` (no tokens). Handles lockout, disabled accounts, forced password change.
+- `POST /auth/login/verify` — `{challenge_token, code, trust_device}` → access + refresh token pair; when `trust_device` is set, also returns a `trust_token` (and sets the trusted-device cookie) so future logins on that device skip the code for 30 days.
+- `POST /auth/login/resend` — `{challenge_token}` → re-emails the code (rate-limited: 60s cooldown, max 3 resends).
 - `POST /auth/refresh` — refresh token → new access token.
 - `POST /auth/logout` — 204 (stateless; client discards tokens).
 - `GET /auth/me` — the current user.
@@ -121,20 +123,22 @@ Everything requires `Authorization: Bearer <jwt>` except `POST /auth/login` and 
 
 **Exports** (`/export`) — `GET /export/{entity}?format=csv|xlsx|pdf` for recruits / cadets / contacts / events.
 
-**Profile** (`/profile`) — get/update profile; 2FA setup / verify / disable (TOTP).
+**Profile** (`/profile`) — get/update profile, change password, and the email-2FA lifecycle:
+- `GET /profile/2fa/status`; `POST /profile/2fa/enroll` (`{method: "email"}`, emails a code); `POST /profile/2fa/enroll/verify` (`{code}`, activates); `POST /profile/2fa/enrollment-dismiss` (declines the one-time prompt); `POST /profile/2fa/disable` (clears any pending code **and revokes all trusted devices**).
+- Trusted devices: `GET /profile/trusted-devices`; `DELETE /profile/trusted-devices/{id}`; `POST /profile/trusted-devices/revoke-others` (keeps the caller's current device, identified by `trust_token` in the body or the trusted-device cookie).
 
-**Admin** (`/admin`, admin-only) — user CRUD (blocks deleting the last admin) and `GET /admin/activity` (the activity log).
+**Admin** (`/admin`, admin-only) — user CRUD (blocks deleting the last admin); `PATCH /admin/users/{id}` accepts `two_factor_enabled` to require/relax email 2FA for a user; `POST /admin/users/{id}/revoke-trusted-devices` signs out all of a user's trusted devices; `GET /admin/activity` (the activity log).
 
 ## Auth & security
 
 - **JWT** (HS256, python-jose) signed with `SECRET_KEY`. Access token ~30 min, refresh ~14 days; clients refresh once on a 401 and retry.
 - **Passwords** hashed with bcrypt. Policy: lockout after `MAX_FAILED_LOGINS`, reuse blocked against the last N (`PASSWORD_HISTORY_SIZE`), expiry (`PASSWORD_EXPIRY_DAYS`, admins exempt).
-- **2FA**: TOTP via pyotp; the secret is **Fernet-encrypted at rest** using `ENCRYPTION_KEY` (fails closed if unset).
+- **2FA (email)**: a random 6-digit code (length `OTP_CODE_LENGTH`) is emailed via Resend; only its **bcrypt hash** is stored (`users.otp_code_hash`), never the code itself. Codes expire after `OTP_TTL_MINUTES` (10), allow `OTP_MAX_ATTEMPTS` (5) verifications, and can be resent on a `OTP_RESEND_COOLDOWN_SECONDS` (60s) cooldown up to `OTP_MAX_RESENDS` (3). Trusted devices carry an opaque token good for `TRUSTED_DEVICE_TTL_DAYS` (30). *(TOTP remains a dormant scaffold — `pyotp` and a Fernet-encrypted `totp_secret` are retained for a possible future authenticator-app method, but email is the only active method.)*
 - **Activity log** records mutating actions for audit.
 
 ## Configuration (env vars — no secrets in the repo)
 
-`DATABASE_URL` (required, must be `postgresql`), `SECRET_KEY`, `ENCRYPTION_KEY`, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS`, `PASSWORD_EXPIRY_DAYS`, `MAX_FAILED_LOGINS`, `PASSWORD_HISTORY_SIZE`, `BOOTSTRAP_ADMIN_USERNAME` / `_EMAIL` / `_PASSWORD`, `MAX_UPLOAD_BYTES` (25 MB), `CORS_ORIGINS`, `CRON_SECRET`. Locally these live in `.env` (gitignored); in the cloud they're Vercel env vars / GitHub Actions secrets.
+`DATABASE_URL` (required, must be `postgresql`), `SECRET_KEY`, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS`, `PASSWORD_EXPIRY_DAYS`, `MAX_FAILED_LOGINS`, `PASSWORD_HISTORY_SIZE`, `BOOTSTRAP_ADMIN_USERNAME` / `_EMAIL` / `_PASSWORD`, `MAX_UPLOAD_BYTES` (25 MB), `CORS_ORIGINS`, `CRON_SECRET`. **Email (Resend):** `RESEND_API_KEY`, `RESEND_FROM_EMAIL` — required in production to deliver 2FA codes (empty disables sending in dev). **Email 2FA:** `OTP_CODE_LENGTH` (6), `OTP_TTL_MINUTES` (10), `OTP_MAX_ATTEMPTS` (5), `OTP_RESEND_COOLDOWN_SECONDS` (60), `OTP_MAX_RESENDS` (3), `TRUSTED_DEVICE_TTL_DAYS` (30), `TRUSTED_DEVICE_COOKIE_NAME`. `ENCRYPTION_KEY` (Fernet) is used only by the dormant TOTP scaffold and is optional for email 2FA. Locally these live in `.env` (gitignored); in the cloud they're Vercel env vars / GitHub Actions secrets.
 
 ## Document storage
 

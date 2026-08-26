@@ -52,7 +52,9 @@ Set on every response in `vercel.json`:
 ## Environment (set in the Vercel dashboard, never in the repo)
 
 - `DATABASE_URL` — the Neon **pooled** connection string (`…-pooler…?sslmode=require`, driver `postgresql+psycopg://`).
-- `SECRET_KEY`, `ENCRYPTION_KEY` — JWT signing and TOTP-secret encryption.
+- `SECRET_KEY` — JWT signing. `ENCRYPTION_KEY` (Fernet) is used only by the **dormant TOTP scaffold** (encrypting `totp_secret` at rest) and is optional for the active email-2FA path.
+- `RESEND_API_KEY`, `RESEND_FROM_EMAIL` — **required in production** to deliver 2FA codes (and intake notifications) via Resend; if unset, email sending is disabled (fine for local dev).
+- **Email-2FA tuning** (all optional, sensible defaults): `OTP_CODE_LENGTH` (6), `OTP_TTL_MINUTES` (10), `OTP_MAX_ATTEMPTS` (5), `OTP_RESEND_COOLDOWN_SECONDS` (60), `OTP_MAX_RESENDS` (3), `TRUSTED_DEVICE_TTL_DAYS` (30), `TRUSTED_DEVICE_COOKIE_NAME`.
 - `BOOTSTRAP_ADMIN_*` — first-run admin seed (only used when `users` is empty).
 - `CORS_ORIGINS`, `CRON_SECRET`, and the storage/upload settings as needed.
 
