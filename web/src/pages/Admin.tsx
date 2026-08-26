@@ -226,8 +226,8 @@ function UserRow({ user, isSelf }: { user: UserOut; isSelf: boolean }) {
         <button
           type="button"
           className={`${styles.stateChip} ${user.two_factor_enabled ? styles.stateActive : styles.stateInactive}`}
-          disabled={busy}
-          title={user.two_factor_enabled ? "Turn off email 2FA for this account" : "Turn on email 2FA for this account"}
+          disabled={busy || isSelf}
+          title={isSelf ? "Manage your own 2FA from your profile" : user.two_factor_enabled ? "Turn off email 2FA for this account" : "Turn on email 2FA for this account"}
           onClick={() => {
             setError(null);
             update.mutate({ two_factor_enabled: !user.two_factor_enabled });

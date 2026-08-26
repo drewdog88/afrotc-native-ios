@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ApiError, api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -42,11 +42,15 @@ export function LoginVerify() {
     } catch (err) {
       const msg =
         err instanceof ApiError ? err.message : "Verification failed. Try again.";
-      setError(msg || "Verification failed. Try again.");
-      // If the challenge was invalidated (too many attempts), send them back.
-      if (err instanceof ApiError && err.status === 400) {
-        setTimeout(() => navigate("/login", { replace: true }), 1500);
-      }
+      // After the attempt cap or a 10-minute expiry the backend clears the
+      // challenge and every Verify/Resend keeps failing, so the code entry is a
+      // dead end — steer the user back to sign in for a fresh challenge. (The
+      // "Back to sign-in" link below is always available regardless.)
+      setError(
+        msg
+          ? `${msg} If this keeps failing, sign in again to get a new code.`
+          : "Verification failed. Sign in again to get a new code.",
+      );
     } finally {
       setBusy(false);
     }
@@ -98,6 +102,11 @@ export function LoginVerify() {
       <button className="btn btn-ghost" onClick={onResend} disabled={cooldown > 0}>
         {cooldown > 0 ? `Resend code (${cooldown}s)` : "Resend code"}
       </button>
+      <p className="muted" style={{ marginTop: 12 }}>
+        <Link to="/login" replace>
+          Back to sign-in
+        </Link>
+      </p>
     </div>
   );
 }
