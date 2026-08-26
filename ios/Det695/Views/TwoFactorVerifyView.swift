@@ -39,8 +39,7 @@ struct TwoFactorVerifyView: View {
 
                     Button(cooldown > 0 ? "Resend code (\(cooldown)s)" : "Resend code") {
                         Task {
-                            await session.resend()
-                            startCooldown()
+                            if await session.resend() { startCooldown() }
                         }
                     }
                     .disabled(cooldown > 0)
@@ -50,6 +49,7 @@ struct TwoFactorVerifyView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
+                        session.loginError = nil
                         session.challenge = nil
                         dismiss()
                     }
@@ -62,11 +62,13 @@ struct TwoFactorVerifyView: View {
     private func startCooldown() {
         cooldown = 60
         ticker?.cancel()
-        ticker = Task {
+        // Run the whole loop on the main actor so reads/writes of the `@State`
+        // `cooldown` stay actor-isolated (no cross-actor access under Swift 6).
+        ticker = Task { @MainActor in
             while cooldown > 0 {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 if Task.isCancelled { return }
-                await MainActor.run { cooldown -= 1 }
+                cooldown -= 1
             }
         }
     }

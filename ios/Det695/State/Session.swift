@@ -93,11 +93,19 @@ final class Session: ObservableObject {
         }
     }
 
-    /// Re-send the emailed code for the active challenge.
-    func resend() async {
-        guard let challenge else { return }
-        do { try await APIClient.shared.loginResend(challengeToken: challenge.token) }
-        catch { loginError = (error as? APIError)?.errorDescription ?? error.localizedDescription }
+    /// Re-send the emailed code for the active challenge. Returns whether the
+    /// send succeeded so the caller only starts its resend cooldown on success
+    /// (a failure — e.g. hitting the resend cap — surfaces via `loginError`).
+    @discardableResult
+    func resend() async -> Bool {
+        guard let challenge else { return false }
+        do {
+            try await APIClient.shared.loginResend(challengeToken: challenge.token)
+            return true
+        } catch {
+            loginError = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            return false
+        }
     }
 
     /// Replace the cached user after a self-service profile edit so any screen
