@@ -1,6 +1,6 @@
 /* Sign-in screen. Left: the "ascent" hero (recruiting as a climb to commission).
-   Right: the credential form, with a 2FA code field revealed only when the API
-   reports it's required. On success, routes to the dashboard. */
+   Right: the credential form. On success, routes to the dashboard; if the API
+   reports a 2FA challenge, routes to the verify screen instead. */
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../lib/api";
@@ -14,8 +14,6 @@ export function Login() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [totp, setTotp] = useState("");
-  const [needs2fa, setNeeds2fa] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -24,17 +22,18 @@ export function Login() {
     setError(null);
     setBusy(true);
     try {
-      await login(username, password, needs2fa ? totp : undefined);
+      const res = await login(username, password);
+      if (res.kind === "challenge") {
+        navigate("/login/verify", {
+          replace: true,
+          state: { challengeToken: res.challengeToken, method: res.method },
+        });
+        return;
+      }
       navigate("/dashboard", { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
-        const msg = String(err.message ?? "").toLowerCase();
-        if (err.status === 401 && (msg.includes("2fa") || msg.includes("totp") || msg.includes("code"))) {
-          setNeeds2fa(true);
-          setError("Enter your 6-digit authentication code to continue.");
-        } else {
-          setError(err.message || "Sign-in failed. Check your credentials.");
-        }
+        setError(err.message || "Sign-in failed. Check your credentials.");
       } else {
         setError("Unable to reach the server. Try again.");
       }
@@ -111,22 +110,6 @@ export function Login() {
               required
             />
           </div>
-
-          {needs2fa && (
-            <div className={styles.group}>
-              <label className="field-label" htmlFor="totp">Authentication code</label>
-              <input
-                id="totp"
-                className="input mono"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="123 456"
-                value={totp}
-                onChange={(e) => setTotp(e.target.value)}
-                required
-              />
-            </div>
-          )}
 
           <button className={`btn btn-primary ${styles.submit}`} type="submit" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
