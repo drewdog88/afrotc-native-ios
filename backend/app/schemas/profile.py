@@ -46,3 +46,9 @@ class TrustedDeviceOut(ORMModel):
     created_at: datetime
     last_used_at: datetime
     expires_at: datetime
+
+
+class RevokeOthersRequest(BaseModel):
+    """Optional body for revoke-others, for cookieless (web) clients."""
+
+    trust_token: str | None = None

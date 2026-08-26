@@ -13,6 +13,7 @@ from app.schemas.auth import UserOut
 from app.schemas.common import Message
 from app.schemas.profile import (
     ProfileUpdate,
+    RevokeOthersRequest,
     TrustedDeviceOut,
     TwoFAEnrollRequest,
     TwoFAStatus,
@@ -138,9 +139,18 @@ def revoke_trusted_device(
 
 @router.post("/trusted-devices/revoke-others", response_model=Message)
 def revoke_other_trusted_devices(
-    request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    request: Request,
+    body: RevokeOthersRequest | None = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> Message:
-    """Revoke all trusted devices except the one making this request, if any."""
-    current = request.cookies.get(settings.trusted_device_cookie_name)
+    """Revoke all trusted devices except the one making this request, if any.
+
+    Accepts the current device's trust token either as a JSON body field
+    (cookieless clients, e.g. web) or as the trusted-device cookie (native
+    clients). The body takes precedence when both are present.
+    """
+    cookie_token = request.cookies.get(settings.trusted_device_cookie_name)
+    current = (body.trust_token if body else None) or cookie_token
     n = trusted_devices.revoke_all(db, user, except_token=current)
     return Message(detail=f"Revoked {n} device(s)")

@@ -66,3 +66,27 @@ def test_revoke_others_keeps_current_device(client: TestClient, make_user, monke
     devices_after = client.get("/api/v1/profile/trusted-devices", headers=headers).json()
     assert len(devices_after) == 1
     assert devices_after[0]["id"] == current_device_id
+
+
+def test_revoke_others_preserves_current_device_via_body_token(
+    client: TestClient, make_user, monkeypatch
+) -> None:
+    _fixed(monkeypatch)
+    make_user("dvbody", "Recruit123!", two_factor_enabled=True, two_factor_method="email")
+    # First trusted login → device A (this is the "current" device / token).
+    tokens_a = _login_2fa_with_trust(client, "dvbody", "Recruit123!")
+    current = tokens_a["trust_token"]
+    headers = {"Authorization": f"Bearer {tokens_a['access_token']}"}
+    # Second trusted login → device B.
+    _login_2fa_with_trust(client, "dvbody", "Recruit123!")
+    assert len(client.get("/api/v1/profile/trusted-devices", headers=headers).json()) == 2
+
+    # Revoke others, presenting device A's token in the BODY (no cookie reliance).
+    resp = client.post(
+        "/api/v1/profile/trusted-devices/revoke-others",
+        headers=headers,
+        json={"trust_token": current},
+    )
+    assert resp.status_code == 200
+    remaining = client.get("/api/v1/profile/trusted-devices", headers=headers).json()
+    assert len(remaining) == 1  # device A survived
