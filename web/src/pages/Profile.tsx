@@ -13,7 +13,10 @@ import styles from "./Profile.module.css";
 type ProfileUpdate = components["schemas"]["ProfileUpdate"];
 type PasswordChange = components["schemas"]["PasswordChange"];
 type TwoFAStatus = components["schemas"]["TwoFAStatus"];
-type TwoFASetupResponse = components["schemas"]["TwoFASetupResponse"];
+// TOTP `TwoFASetupResponse` was removed from the contract by the email-2FA
+// backend. Local shim so the (now-dead) TOTP card compiles until Task 10
+// replaces this card with the email-2FA + trusted-devices UI.
+type TwoFASetupResponse = { secret: string; otpauth_uri: string };
 type TwoFAVerifyRequest = components["schemas"]["TwoFAVerifyRequest"];
 
 type Toast = { kind: "ok" | "error"; msg: string } | null;

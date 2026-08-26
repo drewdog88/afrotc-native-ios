@@ -5,7 +5,15 @@
 import type { components } from "../api/schema";
 
 type Schemas = components["schemas"];
-export type TokenPair = Schemas["TokenPair"];
+// The backend no longer emits a bare `TokenPair` schema component (login now
+// returns LoginResponse, verify returns LoginVerifyResponse). Kept as a local
+// structural type; the two-step login flow (see api.login) constructs it.
+export type TokenPair = {
+  access_token: string;
+  refresh_token: string;
+  token_type?: string;
+  force_password_change?: boolean;
+};
 export type UserOut = Schemas["UserOut"];
 export type DashboardStats = Schemas["DashboardStats"];
 export type FunnelResponse = Schemas["FunnelResponse"];
