@@ -347,10 +347,21 @@ function TwoFactorCard({ notify }: { notify: (k: "ok" | "error", m: string) => v
           <span className={styles.panelNote}>Get a one-time code by email on top of your password.</span>
         </div>
         {!statusQ.isLoading && (
-          <span className={`${styles.badge} ${enabled ? styles.badgeOn : styles.badgeOff}`}>
-            <span className={styles.badgeDot} aria-hidden />
-            {enabled ? "Enabled" : "Disabled"}
-          </span>
+          <label className={styles.switch} title={enabled ? "Turn off" : "Turn on"}>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={enabled || awaitingCode}
+              disabled={enroll.isPending || disable.isPending || verify.isPending}
+              onChange={(e) => {
+                if (e.target.checked) { if (!enabled) enroll.mutate(); }
+                else if (enabled) disable.mutate();
+                else { setAwaitingCode(false); setCode(""); }
+              }}
+              aria-label="Email two-factor authentication"
+            />
+            <span className={styles.switchTrack} aria-hidden />
+          </label>
         )}
       </div>
 
@@ -362,11 +373,6 @@ function TwoFactorCard({ notify }: { notify: (k: "ok" | "error", m: string) => v
             Email 2FA is on. You'll be emailed a 6-digit code when you sign in from a device you
             haven't trusted. Turning it off also signs out all of your trusted devices.
           </p>
-          <div className={styles.actions}>
-            <button className="btn btn-ghost" onClick={() => disable.mutate()} disabled={disable.isPending}>
-              {disable.isPending ? "Turning off…" : "Turn off"}
-            </button>
-          </div>
         </div>
       ) : awaitingCode ? (
         <form className={styles.stack} onSubmit={onVerify}>
@@ -407,11 +413,6 @@ function TwoFactorCard({ notify }: { notify: (k: "ok" | "error", m: string) => v
           <p className={styles.note}>
             Email 2FA is off. Turn it on to require a one-time email code at sign-in.
           </p>
-          <div className={styles.actions}>
-            <button className="btn btn-accent" onClick={() => enroll.mutate()} disabled={enroll.isPending}>
-              {enroll.isPending ? "Sending code…" : "Enable email 2FA"}
-            </button>
-          </div>
         </div>
       )}
     </section>
