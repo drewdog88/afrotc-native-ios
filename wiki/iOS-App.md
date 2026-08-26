@@ -60,8 +60,8 @@ flowchart TD
 - **Follow-ups** — overdue banner, always-on Overdue/Today groups, relative due labels.
 - **Materials** — full CRUD: external links + document upload/download (multipart), write-gated to non-viewer roles.
 - **Territory** — native MapKit map with kind-tinted pins for geocoded contacts + events, a draggable filter sheet, and pin↔row selection sync.
-- **Profile & Security** — view/edit profile, change password, full 2FA/TOTP lifecycle, and Sign Out.
-- **Admin** (admins only) — user management (roles, active toggle, add/delete) + paginated activity/audit log.
+- **Profile & Security** — view/edit profile, change password, the **email-2FA lifecycle** (enroll → verify the emailed code → enable/disable), **trusted-device management** (list devices with last-used/expiry, swipe-to-revoke, and "revoke all other devices"), and Sign Out. On sign-in a 2FA-enabled account is met by the verify sheet (emailed code + optional "trust this device"), and first-time users get a one-time prompt to enroll.
+- **Admin** (admins only) — user management (roles, active toggle, add/delete), a per-user **Require email 2FA** toggle and **Revoke trusted devices** action, plus a paginated activity/audit log.
 - Branding: the real **Detachment 695 patch** (`DetPatch` image asset) on the login screen and in the brand lockup — the same mark the web app now carries.
 
 ## Layout

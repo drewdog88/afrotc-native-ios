@@ -13,7 +13,7 @@
 
 There is no local/SQLite fallback — `config.py` rejects any `DATABASE_URL` that isn't a `postgresql` URL.
 
-## The entity model (11 tables)
+## The entity model (12 tables)
 
 ```mermaid
 erDiagram
@@ -21,6 +21,7 @@ erDiagram
     USERS ||--o{ ACTIVITY_LOG : "writes"
     USERS ||--o{ RECRUIT_STAGE_EVENT : "records change"
     USERS ||--o{ FOLLOW_UP : "assigned / created"
+    USERS ||--o{ TRUSTED_DEVICES : "trusts (skips 2FA)"
     POTENTIAL_RECRUIT ||--o{ RECRUIT_STAGE_EVENT : "has (append-only)"
     POTENTIAL_RECRUIT ||--o{ FOLLOW_UP : "triggers"
     UNIVERSITY_CONTACT ||--o{ RECRUITMENT_EVENT : "hosts"
@@ -31,8 +32,21 @@ erDiagram
         string username
         enum role "admin | recruiter"
         string password_hash "bcrypt"
-        string totp_secret "Fernet-encrypted"
+        bool two_factor_enabled
+        string two_factor_method "email (totp dormant)"
+        bool two_factor_enrollment_prompted
+        string otp_code_hash "bcrypt-hashed emailed code"
+        datetime otp_expires_at
+        string totp_secret "Fernet-encrypted (dormant)"
         bool is_active
+    }
+    TRUSTED_DEVICES {
+        int id PK
+        int user_id FK
+        string token_hash "sha256 of the trust token"
+        string device_label
+        datetime last_used_at
+        datetime expires_at
     }
     POTENTIAL_RECRUIT {
         int id PK
@@ -99,7 +113,8 @@ erDiagram
 
 | Table | Model | Purpose |
 |---|---|---|
-| `users` | `User` | accounts, roles, password policy fields, Fernet-encrypted TOTP secret |
+| `users` | `User` | accounts, roles, password-policy fields, and email-2FA state (`two_factor_enabled`/`_method`/`_enrollment_prompted`, the bcrypt-hashed `otp_code_hash` + expiry/attempts); `totp_secret` (Fernet-encrypted) is retained but dormant |
+| `trusted_devices` | `TrustedDevice` | per-user devices that skip the 2FA code until `expires_at`; stores a **sha256 hash** of the trust token, not the token |
 | `password_history` | `PasswordHistory` | prior password hashes (reuse prevention) |
 | `activity_log` | `ActivityLog` | audit trail of mutating actions |
 | `potential_recruit` | `PotentialRecruit` | recruits; `stage` funnel field; lat/long for the map |

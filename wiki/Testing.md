@@ -5,7 +5,7 @@
 **An honest snapshot of what's verified today.**
 
 ![GitHub Actions](https://img.shields.io/badge/CI-2088FF?style=flat-square&logo=githubactions&logoColor=white)
-![pytest](https://img.shields.io/badge/pytest-95_passing-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
+![pytest](https://img.shields.io/badge/pytest-162_passing-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
 ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=flat-square)
 
 </div>
@@ -14,7 +14,7 @@
 
 ```mermaid
 flowchart TD
-    subgraph api["🧪 Backend suite · pytest (95 tests)"]
+    subgraph api["🧪 Backend suite · pytest (162 tests)"]
         UNIT["Every /api/v1 endpoint module<br>auth · recruits · cadets · contacts<br>events · followups · materials<br>imports · analytics · admin · profile · export"]
     end
     subgraph now["✅ Also runs"]
@@ -31,7 +31,7 @@ flowchart TD
 
 ## The backend suite
 
-**95 tests across 15 files** in `backend/tests/`, green today. Run them with:
+**162 tests across 29 files** in `backend/tests/`, green today. Run them with:
 
 ```bash
 cd backend && uv run pytest -q       # 95 passed
@@ -42,11 +42,11 @@ The harness (`tests/conftest.py`) is the clever part: the app is Postgres-only a
 
 What's covered:
 
-- **Auth** — login success/failure, lockout after repeated failures, refresh flow, password reuse/expiry policy, and TOTP verification.
+- **Auth** — login success/failure, lockout after repeated failures, refresh flow, password reuse/expiry policy, and the **email-2FA login challenge** (a bcrypt-hashed emailed code, wrong/expired codes, the attempt cap, resend cooldown/limit, and trusted-device bypass).
 - **Recruits funnel** — `POST /recruits/{id}/stage` appends an immutable `RecruitStageEvent`; same-stage transitions are rejected; stage history reads back in order.
 - **Cadets · Contacts · Events** — full CRUD, search, and filter coverage with real PNW data.
 - **Follow-ups** — CRUD, the `assignee=me` / status / `due_before` filters, and the `/complete` action (including the already-completed guard).
-- **Profile & 2FA** — self-service profile edits and the full TOTP setup → verify → disable lifecycle (real `pyotp` codes), plus the per-account `can_enable_2fa` gate.
+- **Profile & email 2FA** — self-service profile edits and the full email-2FA lifecycle (enroll → verify the emailed code → enable → disable, which also revokes trusted devices), the one-time enrollment-prompt dismissal, and trusted-device listing/revocation (single, others, and admin-forced).
 - **Materials** — upload enforces `MAX_UPLOAD_BYTES` (413), download streams the stored `bytea`.
 - **Imports** — `POST /recruits/import` returns per-row validation errors.
 - **Exports** — CSV/XLSX/PDF stream for every entity; unknown entity/format is a 422.

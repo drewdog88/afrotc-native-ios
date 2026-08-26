@@ -337,8 +337,13 @@ private struct EditUserSheet: View {
     @State private var email: String
     @State private var phone: String
     @State private var password = ""
+    @State private var twoFactorEnabled: Bool
+    /// Set true just before a programmatic revert of `twoFactorEnabled` so the
+    /// `.onChange` handler skips one cycle and doesn't re-issue the update.
+    @State private var suppressToggle = false
     @State private var saving = false
     @State private var error: String?
+    @State private var notice: String?
 
     init(user: UserOut, onSave: @escaping () async -> Void) {
         self.user = user
@@ -347,6 +352,7 @@ private struct EditUserSheet: View {
         _lastName = State(initialValue: user.lastName)
         _email = State(initialValue: user.email)
         _phone = State(initialValue: user.phone ?? "")
+        _twoFactorEnabled = State(initialValue: user.twoFactorEnabled)
     }
 
     var body: some View {
@@ -384,6 +390,26 @@ private struct EditUserSheet: View {
                     Text("Reset password")
                 } footer: {
                     Text("Leave blank to keep the current password. If set, the user must choose a new one at next sign-in.")
+                }
+                Section {
+                    Toggle("Require email 2FA", isOn: $twoFactorEnabled)
+                        .disabled(saving)
+                        .onChange(of: twoFactorEnabled) { _, next in
+                            if suppressToggle { suppressToggle = false; return }
+                            Task { await setTwoFactor(next) }
+                        }
+                    Button { Task { await revokeDevices() } } label: {
+                        Label("Revoke trusted devices", systemImage: "lock.rotation")
+                    }
+                    .disabled(saving)
+                    if let notice {
+                        Label(notice, systemImage: "checkmark.circle.fill")
+                            .font(.footnote).foregroundStyle(Theme.ok)
+                    }
+                } header: {
+                    Text("Two-factor")
+                } footer: {
+                    Text("Requiring 2FA makes the user verify an emailed code at sign-in. Revoking signs out all of their trusted devices, forcing a code on the next sign-in.")
                 }
             }
             .navigationTitle("Edit \(user.fullName)")
@@ -427,6 +453,33 @@ private struct EditUserSheet: View {
                 id: user.id, AdminUserUpdate(isLocked: false, failedLoginAttempts: 0))
             dismiss()
             await onSave()
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    /// Persist the 2FA requirement immediately (the sheet stays open). On
+    /// failure, revert the toggle without re-issuing the update.
+    private func setTwoFactor(_ next: Bool) async {
+        saving = true; error = nil; notice = nil
+        defer { saving = false }
+        do {
+            _ = try await APIClient.shared.updateAdminUser(id: user.id, AdminUserUpdate(twoFactorEnabled: next))
+            notice = next ? "Email 2FA is now required for this user." : "Email 2FA is no longer required."
+            await onSave()
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            suppressToggle = true
+            twoFactorEnabled = !next
+        }
+    }
+
+    private func revokeDevices() async {
+        saving = true; error = nil; notice = nil
+        defer { saving = false }
+        do {
+            try await APIClient.shared.adminRevokeTrustedDevices(userId: user.id)
+            notice = "Trusted devices revoked."
         } catch {
             self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
         }

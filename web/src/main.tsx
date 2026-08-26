@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { AppShell } from "./components/AppShell";
 import { Login } from "./pages/Login";
+import { LoginVerify } from "./pages/LoginVerify";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { RequestInfo } from "./pages/RequestInfo";
 import { Dashboard } from "./pages/Dashboard";
@@ -54,6 +55,7 @@ createRoot(document.getElementById("root")!).render(
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
+            <Route path="/login/verify" element={<LoginVerify />} />
             <Route
               path="/forgot-password"
               element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>}

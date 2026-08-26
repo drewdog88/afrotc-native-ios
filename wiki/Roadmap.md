@@ -20,7 +20,7 @@ flowchart LR
         D3["Analytics + Territory map"]
         D4["Security + backups/restore drill"]
         D5["Det 695 crest everywhere"]
-        D6["Backend test suite<br>95 pytest tests, green"]
+        D6["Backend test suite<br>162 pytest tests, green"]
         D7["iOS ~100% web parity<br>every screen + sub-feature"]
     end
     subgraph next["🔜 Next"]
@@ -50,11 +50,11 @@ flowchart LR
 - Full recruiting workflow: recruits with an append-only stage funnel, cadets, university contacts, events, follow-ups, and a Materials library (links + documents stored as Postgres `bytea`).
 - Analytics: funnel, trends, and a dashboard stats endpoint feeding both clients.
 - Territory map (MapLibre + CARTO) over geocoded PNW schools/contacts.
-- Security: JWT auth with refresh, bcrypt passwords with lockout/history/expiry, Fernet-encrypted TOTP 2FA, activity log, and a hardened CSP + header set on Vercel.
+- Security: JWT auth with refresh, bcrypt passwords with lockout/history/expiry, opt-in **email 2FA** (bcrypt-hashed codes emailed via Resend, TTL/attempt/resend limits) with **trusted devices**, activity log, and a hardened CSP + header set on Vercel.
 - Data protection: nightly `pg_dump` → GitHub Release backups and a weekly automated restore drill.
 - Web + iOS both carry the real Detachment 695 crest.
 - **iOS ~100% web parity.** Every top-level web screen has an iOS equivalent — Admin, Profile/2FA, bulk import, forgot-password, Territory map, Events calendar — and the within-screen sub-features (charts, chip filters, result counts, richer empty/error/skeleton states, stage-change-with-note, Dashboard/Pipeline chart depth) are all closed. Tracked in the parity audit at `docs/superpowers/specs/2026-07-12-ios-web-parity-audit.md`.
-- **Backend test suite:** 95 pytest tests across 15 files, green today — every `/api/v1` endpoint module (auth, funnel, cadets, contacts, events, follow-ups, materials, imports, exports, analytics, profile/2FA), plus admin guardrails and the read-only viewer role. See [Testing](Testing).
+- **Backend test suite:** 162 pytest tests across 29 files, green today — every `/api/v1` endpoint module (auth incl. the email-2FA login challenge, funnel, cadets, contacts, events, follow-ups, materials, imports, exports, analytics, profile/email-2FA, trusted devices), plus admin guardrails and the read-only viewer role. See [Testing](Testing).
 
 ## 🔜 Next
 

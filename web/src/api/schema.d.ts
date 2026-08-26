@@ -92,6 +92,23 @@ export interface paths {
         patch: operations["update_user_api_v1_admin_users__user_id__patch"];
         trace?: never;
     };
+    "/api/v1/admin/users/{user_id}/revoke-trusted-devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Revoke Trusted Devices */
+        post: operations["admin_revoke_trusted_devices_api_v1_admin_users__user_id__revoke_trusted_devices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/analytics/funnel": {
         parameters: {
             query?: never;
@@ -191,6 +208,40 @@ export interface paths {
         put?: never;
         /** Login */
         post: operations["login_api_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login Resend */
+        post: operations["login_resend_api_v1_auth_login_resend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login Verify */
+        post: operations["login_verify_api_v1_auth_login_verify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -624,26 +675,6 @@ export interface paths {
         patch: operations["update_profile_api_v1_profile_patch"];
         trace?: never;
     };
-    "/api/v1/profile/2fa": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get 2Fa Status
-         * @description Check if 2FA is enabled for the current user.
-         */
-        get: operations["get_2fa_status_api_v1_profile_2fa_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/profile/2fa/disable": {
         parameters: {
             query?: never;
@@ -655,7 +686,7 @@ export interface paths {
         put?: never;
         /**
          * Disable 2Fa
-         * @description Disable 2FA for the current user.
+         * @description Disable 2FA, clear any pending code, and revoke trusted devices.
          */
         post: operations["disable_2fa_api_v1_profile_2fa_disable_post"];
         delete?: never;
@@ -664,7 +695,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/profile/2fa/setup": {
+    "/api/v1/profile/2fa/enroll": {
         parameters: {
             query?: never;
             header?: never;
@@ -674,17 +705,17 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Setup 2Fa
-         * @description Initiate 2FA setup — generate secret and return provisioning URI.
+         * Enroll 2Fa
+         * @description Begin email 2FA enrollment — sends a verification code, does not activate.
          */
-        post: operations["setup_2fa_api_v1_profile_2fa_setup_post"];
+        post: operations["enroll_2fa_api_v1_profile_2fa_enroll_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/profile/2fa/verify": {
+    "/api/v1/profile/2fa/enroll/verify": {
         parameters: {
             query?: never;
             header?: never;
@@ -694,11 +725,115 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Verify 2Fa
-         * @description Verify TOTP code to complete 2FA setup.
+         * Verify Enroll 2Fa
+         * @description Verify the enrollment code and activate email 2FA.
          */
-        post: operations["verify_2fa_api_v1_profile_2fa_verify_post"];
+        post: operations["verify_enroll_2fa_api_v1_profile_2fa_enroll_verify_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/2fa/enrollment-dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Enrollment
+         * @description Mark the enrollment prompt as dismissed without enabling 2FA.
+         */
+        post: operations["dismiss_enrollment_api_v1_profile_2fa_enrollment_dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/2fa/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get 2Fa Status
+         * @description Check 2FA enablement status for the current user.
+         */
+        get: operations["get_2fa_status_api_v1_profile_2fa_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/trusted-devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Trusted Devices
+         * @description List active trusted devices for the current user.
+         */
+        get: operations["list_trusted_devices_api_v1_profile_trusted_devices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/trusted-devices/revoke-others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Other Trusted Devices
+         * @description Revoke all trusted devices except the one making this request, if any.
+         *
+         *     Accepts the current device's trust token either as a JSON body field
+         *     (cookieless clients, e.g. web) or as the trusted-device cookie (native
+         *     clients). The body takes precedence when both are present.
+         */
+        post: operations["revoke_other_trusted_devices_api_v1_profile_trusted_devices_revoke_others_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/trusted-devices/{device_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Trusted Device
+         * @description Revoke a single trusted device by id.
+         */
+        delete: operations["revoke_trusted_device_api_v1_profile_trusted_devices__device_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -900,6 +1035,8 @@ export interface components {
             /** Phone */
             phone?: string | null;
             role?: components["schemas"]["UserRole"] | null;
+            /** Two Factor Enabled */
+            two_factor_enabled?: boolean | null;
         };
         /** Body_import_recruits_api_v1_recruits_import_post */
         Body_import_recruits_api_v1_recruits_import_post: {
@@ -1522,8 +1659,70 @@ export interface components {
             password: string;
             /** Totp Code */
             totp_code?: string | null;
+            /** Trust Token */
+            trust_token?: string | null;
             /** Username */
             username: string;
+        };
+        /**
+         * LoginResponse
+         * @description Either a token pair (success) or a 2FA challenge that needs a code.
+         */
+        LoginResponse: {
+            /** Access Token */
+            access_token?: string | null;
+            /** Challenge Token */
+            challenge_token?: string | null;
+            /**
+             * Force Password Change
+             * @default false
+             */
+            force_password_change: boolean;
+            /** Method */
+            method?: string | null;
+            /** Refresh Token */
+            refresh_token?: string | null;
+            /**
+             * Token Type
+             * @default bearer
+             */
+            token_type: string;
+            /**
+             * Two Factor Required
+             * @default false
+             */
+            two_factor_required: boolean;
+        };
+        /** LoginVerifyRequest */
+        LoginVerifyRequest: {
+            /** Challenge Token */
+            challenge_token: string;
+            /** Code */
+            code: string;
+            /**
+             * Trust Device
+             * @default false
+             */
+            trust_device: boolean;
+        };
+        /** LoginVerifyResponse */
+        LoginVerifyResponse: {
+            /** Access Token */
+            access_token: string;
+            /**
+             * Force Password Change
+             * @default false
+             */
+            force_password_change: boolean;
+            /** Refresh Token */
+            refresh_token: string;
+            /**
+             * Token Type
+             * @default bearer
+             */
+            token_type: string;
+            /** Trust Token */
+            trust_token?: string | null;
         };
         /** Message */
         Message: {
@@ -1780,6 +1979,11 @@ export interface components {
             /** Refresh Token */
             refresh_token: string;
         };
+        /** ResendRequest */
+        ResendRequest: {
+            /** Challenge Token */
+            challenge_token: string;
+        };
         /** ResetPasswordRequest */
         ResetPasswordRequest: {
             /** New Password */
@@ -1788,6 +1992,14 @@ export interface components {
             secret_answer: string;
             /** Username */
             username: string;
+        };
+        /**
+         * RevokeOthersRequest
+         * @description Optional body for revoke-others, for cookieless (web) clients.
+         */
+        RevokeOthersRequest: {
+            /** Trust Token */
+            trust_token?: string | null;
         };
         /**
          * SchoolType
@@ -1825,23 +2037,6 @@ export interface components {
             /** To Stage */
             to_stage: string;
         };
-        /** TokenPair */
-        TokenPair: {
-            /** Access Token */
-            access_token: string;
-            /**
-             * Force Password Change
-             * @default false
-             */
-            force_password_change: boolean;
-            /** Refresh Token */
-            refresh_token: string;
-            /**
-             * Token Type
-             * @default bearer
-             */
-            token_type: string;
-        };
         /**
          * TrendPoint
          * @description A single point in a time series.
@@ -1877,26 +2072,59 @@ export interface components {
             to_date?: string | null;
         };
         /**
-         * TwoFASetupResponse
-         * @description Response when initiating 2FA setup — secret + provisioning URI.
+         * TrustedDeviceOut
+         * @description A trusted device that can skip 2FA until it expires or is revoked.
          */
-        TwoFASetupResponse: {
-            /** Otpauth Uri */
-            otpauth_uri: string;
-            /** Secret */
-            secret: string;
+        TrustedDeviceOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Device Label */
+            device_label: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Id */
+            id: number;
+            /**
+             * Last Used At
+             * Format: date-time
+             */
+            last_used_at: string;
+        };
+        /**
+         * TwoFAEnrollRequest
+         * @description Request to begin email 2FA enrollment.
+         */
+        TwoFAEnrollRequest: {
+            /**
+             * Method
+             * @default email
+             */
+            method: string;
         };
         /**
          * TwoFAStatus
-         * @description 2FA enablement status.
+         * @description 2FA enablement status for the current user.
          */
         TwoFAStatus: {
             /** Enabled */
             enabled: boolean;
+            /**
+             * Enrollment Prompted
+             * @default false
+             */
+            enrollment_prompted: boolean;
+            /** Method */
+            method?: string | null;
         };
         /**
          * TwoFAVerifyRequest
-         * @description Verify TOTP code to complete 2FA setup.
+         * @description Verify a one-time code to complete 2FA enrollment.
          */
         TwoFAVerifyRequest: {
             /** Code */
@@ -1932,6 +2160,18 @@ export interface components {
             phone?: string | null;
             /** Role */
             role: string;
+            /**
+             * Two Factor Enabled
+             * @default false
+             */
+            two_factor_enabled: boolean;
+            /**
+             * Two Factor Enrollment Prompted
+             * @default false
+             */
+            two_factor_enrollment_prompted: boolean;
+            /** Two Factor Method */
+            two_factor_method?: string | null;
             /** Username */
             username: string;
         };
@@ -2207,6 +2447,37 @@ export interface operations {
             };
         };
     };
+    admin_revoke_trusted_devices_api_v1_admin_users__user_id__revoke_trusted_devices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_funnel_api_v1_analytics_funnel_get: {
         parameters: {
             query?: {
@@ -2359,7 +2630,73 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TokenPair"];
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_resend_api_v1_auth_login_resend_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResendRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_verify_api_v1_auth_login_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginVerifyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3582,26 +3919,6 @@ export interface operations {
             };
         };
     };
-    get_2fa_status_api_v1_profile_2fa_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TwoFAStatus"];
-                };
-            };
-        };
-    };
     disable_2fa_api_v1_profile_2fa_disable_post: {
         parameters: {
             query?: never;
@@ -3622,7 +3939,73 @@ export interface operations {
             };
         };
     };
-    setup_2fa_api_v1_profile_2fa_setup_post: {
+    enroll_2fa_api_v1_profile_2fa_enroll_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwoFAEnrollRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_enroll_2fa_api_v1_profile_2fa_enroll_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwoFAVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_enrollment_api_v1_profile_2fa_enrollment_dismiss_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -3637,23 +4020,94 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TwoFASetupResponse"];
+                    "application/json": components["schemas"]["Message"];
                 };
             };
         };
     };
-    verify_2fa_api_v1_profile_2fa_verify_post: {
+    get_2fa_status_api_v1_profile_2fa_status_get: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TwoFAVerifyRequest"];
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFAStatus"];
+                };
             };
         };
+    };
+    list_trusted_devices_api_v1_profile_trusted_devices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrustedDeviceOut"][];
+                };
+            };
+        };
+    };
+    revoke_other_trusted_devices_api_v1_profile_trusted_devices_revoke_others_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RevokeOthersRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_trusted_device_api_v1_profile_trusted_devices__device_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

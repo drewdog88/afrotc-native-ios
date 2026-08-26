@@ -70,8 +70,10 @@ struct RootView: View {
 /// The authenticated shell. Five tabs — Dashboard, Recruits, Cadets, Pipeline,
 /// and a More hub that holds Contacts, Events, Follow-ups, and Materials.
 struct MainTabView: View {
+    @EnvironmentObject private var session: Session
     @StateObject private var router = AppRouter(tab: MainTabView.initialTab,
                                                morePath: MoreView.initialPath)
+    @State private var showEnrollment = false
 
     var body: some View {
         TabView(selection: $router.tab) {
@@ -92,6 +94,14 @@ struct MainTabView: View {
                 .tag("more")
         }
         .environmentObject(router)
+        .sheet(isPresented: $showEnrollment) {
+            EnrollmentSheet().environmentObject(session)
+        }
+        .onAppear {
+            if let u = session.user, !u.twoFactorEnabled, !u.twoFactorEnrollmentPrompted {
+                showEnrollment = true
+            }
+        }
     }
 
     /// Which tab to open on launch. Defaults to Dashboard; in DEBUG builds a

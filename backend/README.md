@@ -9,12 +9,12 @@
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy_2.0-D71F00?style=flat-square&logo=sqlalchemy&logoColor=white)
 ![Pydantic](https://img.shields.io/badge/Pydantic_v2-E92063?style=flat-square&logo=pydantic&logoColor=white)
 ![Postgres](https://img.shields.io/badge/Neon_Postgres-00E599?style=flat-square&logo=postgresql&logoColor=white)
-![pytest](https://img.shields.io/badge/pytest-95_passing-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
+![pytest](https://img.shields.io/badge/pytest-162_passing-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
 
 </div>
 
 ## Stack
-FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2 · JWT (python-jose) · bcrypt · pyotp (TOTP) · Neon PostgreSQL.
+FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2 · JWT (python-jose) · bcrypt · Resend (email-2FA codes) · Neon PostgreSQL. *(`pyotp` + Fernet are retained as a dormant TOTP scaffold — email is the only active 2FA method.)*
 
 ## Request lifecycle
 
@@ -69,13 +69,13 @@ app/
   api/v1/     route modules (auth, recruits, cadets, contacts, events, …)
   bootstrap.py first-run admin seed
   main.py     FastAPI app + health
-tests/        95 pytest tests over an in-memory SQLite harness
+tests/        162 pytest tests over an in-memory SQLite harness
 ```
 
 ## Tests
 
 ```bash
-uv run pytest -q        # 95 passing — every /api/v1 module
+uv run pytest -q        # 162 passing — every /api/v1 module
 uv run ruff check .     # lint
 ```
 

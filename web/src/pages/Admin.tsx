@@ -223,6 +223,19 @@ function UserRow({ user, isSelf }: { user: UserOut; isSelf: boolean }) {
           <span className={styles.stateDot} aria-hidden />
           {user.is_active ? "Active" : "Inactive"}
         </button>
+        <button
+          type="button"
+          className={`${styles.stateChip} ${user.two_factor_enabled ? styles.stateActive : styles.stateInactive}`}
+          disabled={busy || isSelf}
+          title={isSelf ? "Manage your own 2FA from your profile" : user.two_factor_enabled ? "Turn off email 2FA for this account" : "Turn on email 2FA for this account"}
+          onClick={() => {
+            setError(null);
+            update.mutate({ two_factor_enabled: !user.two_factor_enabled });
+          }}
+        >
+          <span className={styles.stateDot} aria-hidden />
+          {user.two_factor_enabled ? "2FA on" : "2FA off"}
+        </button>
         {user.is_locked && (
           <span className={styles.sub} title="Locked out of sign-in after too many failed attempts">
             🔒 Locked
@@ -404,6 +417,7 @@ function EditUserDrawer({ user, onClose }: { user: UserOut; onClose: () => void 
     password: "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -432,7 +446,17 @@ function EditUserDrawer({ user, onClose }: { user: UserOut; onClose: () => void 
     onError: (err) => setError(err instanceof ApiError ? err.message : "Couldn't unlock this account."),
   });
 
-  const busy = save.isPending || unlock.isPending;
+  const revokeDevices = useMutation({
+    mutationFn: () => api.adminRevokeTrustedDevices(user.id),
+    onSuccess: (res) => {
+      setError(null);
+      setNotice(res.detail || "Trusted devices revoked.");
+      invalidate();
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Couldn't revoke trusted devices."),
+  });
+
+  const busy = save.isPending || unlock.isPending || revokeDevices.isPending;
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -458,6 +482,7 @@ function EditUserDrawer({ user, onClose }: { user: UserOut; onClose: () => void 
         </div>
 
         {error && <div className={styles.formError}>{error}</div>}
+        {notice && !error && <div className={styles.sub}>{notice}</div>}
 
         {user.is_locked && (
           <div className={styles.formError}>
@@ -475,6 +500,27 @@ function EditUserDrawer({ user, onClose }: { user: UserOut; onClose: () => void 
             </button>
           </div>
         )}
+
+        <div className={styles.field}>
+          <span className="field-label">Trusted devices</span>
+          <div>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={busy}
+              onClick={() => {
+                setError(null);
+                setNotice(null);
+                revokeDevices.mutate();
+              }}
+            >
+              {revokeDevices.isPending ? "Revoking…" : "Revoke trusted devices"}
+            </button>
+          </div>
+          <span className={styles.sectionNote}>
+            Signs this account out of every device it previously chose to trust for email 2FA.
+          </span>
+        </div>
 
         <div className={styles.formRow}>
           <div className={styles.field}>

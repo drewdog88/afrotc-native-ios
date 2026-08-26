@@ -31,6 +31,7 @@ struct AdminUserUpdate: Encodable {
     var isLocked: Bool?
     var failedLoginAttempts: Int?
     var password: String?
+    var twoFactorEnabled: Bool?
 }
 
 /// A single audit-log entry. Mirrors the backend `ActivityLogOut`; `createdAt`

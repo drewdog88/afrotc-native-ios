@@ -284,6 +284,17 @@
                 "type": "null"
               }
             ]
+          },
+          "two_factor_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Two Factor Enabled"
           }
         },
         "title": "AdminUserUpdate",
@@ -2383,6 +2394,17 @@
             ],
             "title": "Totp Code"
           },
+          "trust_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Token"
+          },
           "username": {
             "title": "Username",
             "type": "string"
@@ -2393,6 +2415,134 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginResponse": {
+        "description": "Either a token pair (success) or a 2FA challenge that needs a code.",
+        "properties": {
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token"
+          },
+          "challenge_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge Token"
+          },
+          "force_password_change": {
+            "default": false,
+            "title": "Force Password Change",
+            "type": "boolean"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          },
+          "two_factor_required": {
+            "default": false,
+            "title": "Two Factor Required",
+            "type": "boolean"
+          }
+        },
+        "title": "LoginResponse",
+        "type": "object"
+      },
+      "LoginVerifyRequest": {
+        "properties": {
+          "challenge_token": {
+            "title": "Challenge Token",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "trust_device": {
+            "default": false,
+            "title": "Trust Device",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "challenge_token",
+          "code"
+        ],
+        "title": "LoginVerifyRequest",
+        "type": "object"
+      },
+      "LoginVerifyResponse": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "force_password_change": {
+            "default": false,
+            "title": "Force Password Change",
+            "type": "boolean"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          },
+          "trust_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Token"
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token"
+        ],
+        "title": "LoginVerifyResponse",
         "type": "object"
       },
       "Message": {
@@ -3330,6 +3480,19 @@
         "title": "RefreshRequest",
         "type": "object"
       },
+      "ResendRequest": {
+        "properties": {
+          "challenge_token": {
+            "title": "Challenge Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_token"
+        ],
+        "title": "ResendRequest",
+        "type": "object"
+      },
       "ResetPasswordRequest": {
         "properties": {
           "new_password": {
@@ -3353,6 +3516,24 @@
           "new_password"
         ],
         "title": "ResetPasswordRequest",
+        "type": "object"
+      },
+      "RevokeOthersRequest": {
+        "description": "Optional body for revoke-others, for cookieless (web) clients.",
+        "properties": {
+          "trust_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Token"
+          }
+        },
+        "title": "RevokeOthersRequest",
         "type": "object"
       },
       "SchoolType": {
@@ -3462,34 +3643,6 @@
         "title": "StageEventOut",
         "type": "object"
       },
-      "TokenPair": {
-        "properties": {
-          "access_token": {
-            "title": "Access Token",
-            "type": "string"
-          },
-          "force_password_change": {
-            "default": false,
-            "title": "Force Password Change",
-            "type": "boolean"
-          },
-          "refresh_token": {
-            "title": "Refresh Token",
-            "type": "string"
-          },
-          "token_type": {
-            "default": "bearer",
-            "title": "Token Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "access_token",
-          "refresh_token"
-        ],
-        "title": "TokenPair",
-        "type": "object"
-      },
       "TrendPoint": {
         "description": "A single point in a time series.",
         "properties": {
@@ -3577,31 +3730,77 @@
         "title": "TrendsResponse",
         "type": "object"
       },
-      "TwoFASetupResponse": {
-        "description": "Response when initiating 2FA setup \u2014 secret + provisioning URI.",
+      "TrustedDeviceOut": {
+        "description": "A trusted device that can skip 2FA until it expires or is revoked.",
         "properties": {
-          "otpauth_uri": {
-            "title": "Otpauth Uri",
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
             "type": "string"
           },
-          "secret": {
-            "title": "Secret",
+          "device_label": {
+            "title": "Device Label",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "title": "Last Used At",
             "type": "string"
           }
         },
         "required": [
-          "secret",
-          "otpauth_uri"
+          "id",
+          "device_label",
+          "created_at",
+          "last_used_at",
+          "expires_at"
         ],
-        "title": "TwoFASetupResponse",
+        "title": "TrustedDeviceOut",
+        "type": "object"
+      },
+      "TwoFAEnrollRequest": {
+        "description": "Request to begin email 2FA enrollment.",
+        "properties": {
+          "method": {
+            "default": "email",
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "title": "TwoFAEnrollRequest",
         "type": "object"
       },
       "TwoFAStatus": {
-        "description": "2FA enablement status.",
+        "description": "2FA enablement status for the current user.",
         "properties": {
           "enabled": {
             "title": "Enabled",
             "type": "boolean"
+          },
+          "enrollment_prompted": {
+            "default": false,
+            "title": "Enrollment Prompted",
+            "type": "boolean"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
           }
         },
         "required": [
@@ -3611,7 +3810,7 @@
         "type": "object"
       },
       "TwoFAVerifyRequest": {
-        "description": "Verify TOTP code to complete 2FA setup.",
+        "description": "Verify a one-time code to complete 2FA enrollment.",
         "properties": {
           "code": {
             "title": "Code",
@@ -3703,6 +3902,27 @@
           "role": {
             "title": "Role",
             "type": "string"
+          },
+          "two_factor_enabled": {
+            "default": false,
+            "title": "Two Factor Enabled",
+            "type": "boolean"
+          },
+          "two_factor_enrollment_prompted": {
+            "default": false,
+            "title": "Two Factor Enrollment Prompted",
+            "type": "boolean"
+          },
+          "two_factor_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Two Factor Method"
           },
           "username": {
             "title": "Username",
@@ -4196,6 +4416,53 @@
         ]
       }
     },
+    "/api/v1/admin/users/{user_id}/revoke-trusted-devices": {
+      "post": {
+        "operationId": "admin_revoke_trusted_devices_api_v1_admin_users__user_id__revoke_trusted_devices_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Revoke Trusted Devices",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/analytics/funnel": {
       "get": {
         "description": "Current count of recruits per stage (respects FUNNEL_ORDER).\n\nThe from/to date window filters recruits by created_at. Returns counts for\nEVERY stage in FUNNEL_ORDER, with 0 if none are at that stage.",
@@ -4477,7 +4744,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TokenPair"
+                  "$ref": "#/components/schemas/LoginResponse"
                 }
               }
             },
@@ -4495,6 +4762,88 @@
           }
         },
         "summary": "Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login/resend": {
+      "post": {
+        "operationId": "login_resend_api_v1_auth_login_resend_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login Resend",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login/verify": {
+      "post": {
+        "operationId": "login_verify_api_v1_auth_login_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginVerifyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login Verify",
         "tags": [
           "auth"
         ]
@@ -6576,36 +6925,9 @@
         ]
       }
     },
-    "/api/v1/profile/2fa": {
-      "get": {
-        "description": "Check if 2FA is enabled for the current user.",
-        "operationId": "get_2fa_status_api_v1_profile_2fa_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TwoFAStatus"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get 2Fa Status",
-        "tags": [
-          "profile"
-        ]
-      }
-    },
     "/api/v1/profile/2fa/disable": {
       "post": {
-        "description": "Disable 2FA for the current user.",
+        "description": "Disable 2FA, clear any pending code, and revoke trusted devices.",
         "operationId": "disable_2fa_api_v1_profile_2fa_disable_post",
         "responses": {
           "200": {
@@ -6630,20 +6952,40 @@
         ]
       }
     },
-    "/api/v1/profile/2fa/setup": {
+    "/api/v1/profile/2fa/enroll": {
       "post": {
-        "description": "Initiate 2FA setup \u2014 generate secret and return provisioning URI.",
-        "operationId": "setup_2fa_api_v1_profile_2fa_setup_post",
+        "description": "Begin email 2FA enrollment \u2014 sends a verification code, does not activate.",
+        "operationId": "enroll_2fa_api_v1_profile_2fa_enroll_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFAEnrollRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TwoFASetupResponse"
+                  "$ref": "#/components/schemas/Message"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -6651,16 +6993,16 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Setup 2Fa",
+        "summary": "Enroll 2Fa",
         "tags": [
           "profile"
         ]
       }
     },
-    "/api/v1/profile/2fa/verify": {
+    "/api/v1/profile/2fa/enroll/verify": {
       "post": {
-        "description": "Verify TOTP code to complete 2FA setup.",
-        "operationId": "verify_2fa_api_v1_profile_2fa_verify_post",
+        "description": "Verify the enrollment code and activate email 2FA.",
+        "operationId": "verify_enroll_2fa_api_v1_profile_2fa_enroll_verify_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6698,7 +7040,194 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Verify 2Fa",
+        "summary": "Verify Enroll 2Fa",
+        "tags": [
+          "profile"
+        ]
+      }
+    },
+    "/api/v1/profile/2fa/enrollment-dismiss": {
+      "post": {
+        "description": "Mark the enrollment prompt as dismissed without enabling 2FA.",
+        "operationId": "dismiss_enrollment_api_v1_profile_2fa_enrollment_dismiss_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Dismiss Enrollment",
+        "tags": [
+          "profile"
+        ]
+      }
+    },
+    "/api/v1/profile/2fa/status": {
+      "get": {
+        "description": "Check 2FA enablement status for the current user.",
+        "operationId": "get_2fa_status_api_v1_profile_2fa_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFAStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get 2Fa Status",
+        "tags": [
+          "profile"
+        ]
+      }
+    },
+    "/api/v1/profile/trusted-devices": {
+      "get": {
+        "description": "List active trusted devices for the current user.",
+        "operationId": "list_trusted_devices_api_v1_profile_trusted_devices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TrustedDeviceOut"
+                  },
+                  "title": "Response List Trusted Devices Api V1 Profile Trusted Devices Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Trusted Devices",
+        "tags": [
+          "profile"
+        ]
+      }
+    },
+    "/api/v1/profile/trusted-devices/revoke-others": {
+      "post": {
+        "description": "Revoke all trusted devices except the one making this request, if any.\n\nAccepts the current device's trust token either as a JSON body field\n(cookieless clients, e.g. web) or as the trusted-device cookie (native\nclients). The body takes precedence when both are present.",
+        "operationId": "revoke_other_trusted_devices_api_v1_profile_trusted_devices_revoke_others_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RevokeOthersRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Revoke Other Trusted Devices",
+        "tags": [
+          "profile"
+        ]
+      }
+    },
+    "/api/v1/profile/trusted-devices/{device_id}": {
+      "delete": {
+        "description": "Revoke a single trusted device by id.",
+        "operationId": "revoke_trusted_device_api_v1_profile_trusted_devices__device_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Revoke Trusted Device",
         "tags": [
           "profile"
         ]

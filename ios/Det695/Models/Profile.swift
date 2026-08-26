@@ -21,17 +21,25 @@ struct PasswordChangeInput: Encodable {
 
 /// GET /profile/2fa
 struct TwoFAStatus: Decodable {
-    let enabled: Bool
+    var enabled: Bool = false
+    var method: String? = nil
+    var enrollmentPrompted: Bool = false
 }
 
-/// POST /profile/2fa/setup — the shared secret and otpauth URI for manual entry
-/// into an authenticator app (we mirror the web's manual-entry flow; no QR).
-struct TwoFASetupResponse: Decodable {
-    let secret: String
-    let otpauthUri: String
-}
+/// POST /profile/2fa/enroll
+struct TwoFAEnrollInput: Encodable { let method: String }         // "email"
 
-/// POST /profile/2fa/verify
-struct TwoFAVerifyInput: Encodable {
-    let code: String
+/// POST /profile/2fa/enroll/verify
+struct TwoFAEnrollVerifyInput: Encodable { let code: String }
+
+/// A device the user has chosen to trust, skipping 2FA challenges for a
+/// limited window. Date fields arrive as ISO-8601 strings; the shared
+/// `APIClient` decoder has no `dateDecodingStrategy` configured, so these
+/// stay `String` and are formatted for display via `DateDisplay`.
+struct TrustedDevice: Decodable, Identifiable {
+    let id: Int
+    let deviceLabel: String
+    let createdAt: String
+    let lastUsedAt: String
+    let expiresAt: String
 }

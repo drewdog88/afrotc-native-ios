@@ -131,28 +131,6 @@
   background: var(--muted);
 }
 
-/* ---- 2FA setup secret / uri — selectable monospace ---- */
-.secret,
-.uri {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: var(--t-sm);
-  color: var(--ink);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: var(--sp-3);
-  user-select: all;
-  word-break: break-all;
-}
-.secret {
-  letter-spacing: 0.12em;
-  font-size: var(--t-base);
-}
-.uri {
-  color: var(--ink-2);
-  font-size: var(--t-xs);
-}
 .codeInput {
   font-family: var(--font-mono);
   letter-spacing: 0.4em;

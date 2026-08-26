@@ -1,9 +1,9 @@
 import SwiftUI
-import UIKit
 
 /// Self-service account settings, mirroring the web Profile page
-/// (web/src/pages/Profile.tsx): view/edit profile, change password, and the full
-/// two-factor (TOTP) lifecycle — plus the Sign Out action the app otherwise lacks.
+/// (web/src/pages/Profile.tsx): view/edit profile, change password, the email
+/// two-factor lifecycle (enable/disable + trusted-device management) — plus the
+/// Sign Out action the app otherwise lacks.
 /// A `Form` with one section per web "card"; each action reports its result inline
 /// rather than via a global toast (the idiomatic pattern for a form).
 struct ProfileView: View {
@@ -12,6 +12,7 @@ struct ProfileView: View {
     @State private var loadError: String?
     @State private var loading = false
     @State private var confirmSignOut = false
+    @State private var twoFAEnabled = false
 
     var body: some View {
         Group {
@@ -22,7 +23,8 @@ struct ProfileView: View {
                         session.applyUpdatedUser(updated)
                     }
                     PasswordSection()
-                    TwoFactorSection()
+                    TwoFactorSection(onEnabledChange: { twoFAEnabled = $0 })
+                    if twoFAEnabled { TrustedDevicesSection() }
                     signOutSection
                 }
             } else if let loadError {
@@ -198,10 +200,16 @@ private struct PasswordSection: View {
 // MARK: - Two-factor authentication
 
 private struct TwoFactorSection: View {
+    /// Notifies the parent when the enabled state is known/changes, so it can
+    /// show or hide the Trusted Devices section accordingly.
+    let onEnabledChange: (Bool) -> Void
+
     @State private var enabled = false
     @State private var loading = true
     @State private var working = false
-    @State private var setup: TwoFASetupResponse?
+    /// True once enrollment has begun (a code was emailed) and we're awaiting
+    /// the 6-digit confirmation code.
+    @State private var enrolling = false
     @State private var code = ""
     @State private var status: StatusLine?
 
@@ -210,33 +218,31 @@ private struct TwoFactorSection: View {
             if loading {
                 HStack { ProgressView(); Text("Checking…").foregroundStyle(.secondary) }
             } else if enabled {
-                Text("Your account is protected. You'll be asked for a 6-digit code when you sign in.")
+                Text("Your account is protected. We'll email you a 6-digit code when you sign in on a new device.")
                     .font(.footnote).foregroundStyle(.secondary)
                 Button(role: .destructive) { Task { await disable() } } label: {
                     if working { ProgressView() } else { Text("Turn off two-factor") }
                 }.disabled(working)
-            } else if let setup {
-                Text("Add this account to your authenticator app, then enter the 6-digit code it shows to finish.")
+            } else if enrolling {
+                Text("We emailed a 6-digit code to your address. Enter it below to finish turning on two-factor.")
                     .font(.footnote).foregroundStyle(.secondary)
-                copyableRow(label: "Manual entry key", value: setup.secret)
-                copyableRow(label: "Setup URI", value: setup.otpauthUri)
                 TextField("000000", text: $code)
                     .keyboardType(.numberPad)
                     .textContentType(.oneTimeCode)
                     .font(.title3.monospacedDigit())
                     .onChange(of: code) { _, v in code = String(v.filter(\.isNumber).prefix(6)) }
                 HStack {
-                    Button("Cancel") { self.setup = nil; code = "" }.disabled(working)
+                    Button("Cancel") { enrolling = false; code = ""; status = nil }.disabled(working)
                     Spacer()
-                    Button { Task { await verify() } } label: {
+                    Button { Task { await verifyEnroll() } } label: {
                         if working { ProgressView() } else { Text("Verify & enable").bold() }
                     }.disabled(working || code.count != 6)
                 }
             } else {
-                Text("Two-factor is off. Turn it on to require a rotating code from your phone at sign-in.")
+                Text("Two-factor is off. Turn it on to require an emailed code when you sign in on a new device.")
                     .font(.footnote).foregroundStyle(.secondary)
-                Button { Task { await beginSetup() } } label: {
-                    if working { ProgressView() } else { Text("Set up two-factor") }
+                Button { Task { await beginEnroll() } } label: {
+                    if working { ProgressView() } else { Text("Enable email 2FA") }
                 }.disabled(working)
             }
             if let status { status }
@@ -255,40 +261,30 @@ private struct TwoFactorSection: View {
         .task { await loadStatus() }
     }
 
-    private func copyableRow(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
-            HStack {
-                Text(value).font(.footnote.monospaced()).textSelection(.enabled)
-                    .lineLimit(2).truncationMode(.middle)
-                Spacer()
-                Button { UIPasteboard.general.string = value } label: {
-                    Image(systemName: "doc.on.doc")
-                }.buttonStyle(.borderless)
-            }
-        }
-    }
-
     private func loadStatus() async {
         loading = true
         defer { loading = false }
-        do { enabled = try await APIClient.shared.twoFAStatus().enabled }
-        catch { status = .error((error as? APIError)?.errorDescription ?? error.localizedDescription) }
+        do {
+            enabled = try await APIClient.shared.twoFAStatus().enabled
+            onEnabledChange(enabled)
+        } catch { status = .error((error as? APIError)?.errorDescription ?? error.localizedDescription) }
     }
 
-    private func beginSetup() async {
-        working = true; status = nil
-        defer { working = false }
-        do { setup = try await APIClient.shared.twoFASetup(); code = "" }
-        catch { status = .error((error as? APIError)?.errorDescription ?? error.localizedDescription) }
-    }
-
-    private func verify() async {
+    private func beginEnroll() async {
         working = true; status = nil
         defer { working = false }
         do {
-            try await APIClient.shared.twoFAVerify(.init(code: code.trimmed))
-            setup = nil; code = ""
+            try await APIClient.shared.enroll()
+            enrolling = true; code = ""
+        } catch { status = .error((error as? APIError)?.errorDescription ?? error.localizedDescription) }
+    }
+
+    private func verifyEnroll() async {
+        working = true; status = nil
+        defer { working = false }
+        do {
+            try await APIClient.shared.enrollVerify(code: code.trimmed)
+            enrolling = false; code = ""
             await loadStatus()
             status = .ok("Two-factor authentication is on.")
         } catch {
@@ -300,10 +296,85 @@ private struct TwoFactorSection: View {
         working = true; status = nil
         defer { working = false }
         do {
-            try await APIClient.shared.twoFADisable()
-            setup = nil; code = ""
+            try await APIClient.shared.disable2FA()
+            enrolling = false; code = ""
             await loadStatus()
-            status = .ok("Two-factor authentication is off.")
+            status = .ok("Two-factor is off. Your trusted devices were signed out.")
+        } catch {
+            status = .error((error as? APIError)?.errorDescription ?? error.localizedDescription)
+        }
+    }
+}
+
+// MARK: - Trusted devices
+
+private struct TrustedDevicesSection: View {
+    @State private var devices: [TrustedDevice] = []
+    @State private var loading = true
+    @State private var working = false
+    @State private var status: StatusLine?
+
+    var body: some View {
+        Section {
+            if loading {
+                HStack { ProgressView(); Text("Loading…").foregroundStyle(.secondary) }
+            } else if devices.isEmpty {
+                Text("No trusted devices yet. Check \"Trust this device\" when you sign in to skip the emailed code here for 30 days.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            } else {
+                ForEach(devices) { device in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(device.deviceLabel.nonEmpty ?? "Unknown device")
+                        Text("Last used \(DateDisplay.mediumDateTime(device.lastUsedAt)) · Expires \(DateDisplay.mediumDate(device.expiresAt))")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) { Task { await revoke(id: device.id) } } label: {
+                            Label("Revoke", systemImage: "trash")
+                        }
+                    }
+                }
+                if devices.count > 1 {
+                    Button(role: .destructive) { Task { await revokeOthers() } } label: {
+                        if working { ProgressView() } else { Text("Revoke all other devices") }
+                    }.disabled(working)
+                }
+            }
+            if let status { status }
+        } header: {
+            Text("Trusted devices")
+        } footer: {
+            Text("Swipe a device to revoke it. Revoking signs it out and requires an emailed code on its next sign-in.")
+        }
+        .task { await load() }
+    }
+
+    private func load() async {
+        loading = true
+        defer { loading = false }
+        do { devices = try await APIClient.shared.listTrustedDevices() }
+        catch { status = .error((error as? APIError)?.errorDescription ?? error.localizedDescription) }
+    }
+
+    private func revoke(id: Int) async {
+        working = true; status = nil
+        defer { working = false }
+        do {
+            try await APIClient.shared.revokeTrustedDevice(id: id)
+            await load()
+            status = .ok("Device revoked.")
+        } catch {
+            status = .error((error as? APIError)?.errorDescription ?? error.localizedDescription)
+        }
+    }
+
+    private func revokeOthers() async {
+        working = true; status = nil
+        defer { working = false }
+        do {
+            try await APIClient.shared.revokeOtherTrustedDevices()
+            await load()
+            status = .ok("Other devices revoked.")
         } catch {
             status = .error((error as? APIError)?.errorDescription ?? error.localizedDescription)
         }

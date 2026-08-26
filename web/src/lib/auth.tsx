@@ -2,14 +2,17 @@
    On mount, if a token is present we hydrate the current user from /auth/me so a
    refresh keeps the session. Guarded routes read `user` to decide access. */
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { api, tokens, type UserOut } from "./api";
+import { api, tokens, type LoginResult, type UserOut } from "./api";
 
 interface AuthState {
   user: UserOut | null;
   loading: boolean;
   /** False for the read-only "viewer" role; gates create/edit/delete UI. */
   canWrite: boolean;
-  login: (username: string, password: string, totp?: string) => Promise<UserOut>;
+  login: (username: string, password: string) => Promise<LoginResult>;
+  completeVerify: (challengeToken: string, code: string, trustDevice: boolean) => Promise<void>;
+  /** Re-fetches the current user (e.g. after 2FA enrollment state changes). */
+  refresh: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -40,11 +43,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (username: string, password: string, totp?: string) => {
-    await api.login(username, password, totp);
-    const me = await api.me();
-    setUser(me);
-    return me;
+  const login = useCallback(async (username: string, password: string): Promise<LoginResult> => {
+    const res = await api.login(username, password);
+    if (res.kind === "authed") {
+      setUser(await api.me());
+    }
+    return res;
+  }, []);
+
+  const completeVerify = useCallback(
+    async (challengeToken: string, code: string, trustDevice: boolean): Promise<void> => {
+      await api.loginVerify(challengeToken, code, trustDevice);
+      setUser(await api.me());
+    },
+    [],
+  );
+
+  const refresh = useCallback(async (): Promise<void> => {
+    setUser(await api.me());
   }, []);
 
   const logout = useCallback(async () => {
@@ -55,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canWrite = user != null && user.role !== "viewer";
 
   return (
-    <AuthContext.Provider value={{ user, loading, canWrite, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, canWrite, login, completeVerify, refresh, logout }}>
       {children}
     </AuthContext.Provider>
   );
