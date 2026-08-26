@@ -75,6 +75,7 @@ export function Profile() {
           <ProfileCard user={user} notify={notify} />
           <PasswordCard notify={notify} />
           <TwoFactorCard notify={notify} />
+          <SignedInDevicesCard notify={notify} />
           {twoFAQ.data?.enabled && <TrustedDevicesCard />}
         </>
       )}
@@ -476,6 +477,65 @@ function TrustedDevicesCard() {
             disabled={revokeOthers.isPending}
           >
             {revokeOthers.isPending ? "Revoking…" : "Revoke all other devices"}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ---- Signed-in devices (active sessions): list + per-row / bulk sign-out ---- */
+function SignedInDevicesCard({ notify }: { notify: (k: "ok" | "error", m: string) => void }) {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["sessions"], queryFn: () => api.listSessions() });
+  const revoke = useMutation({
+    mutationFn: (id: number) => api.revokeSession(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["sessions"] }); notify("ok", "Signed that device out."); },
+    onError: (e) => notify("error", errMsg(e, "Couldn't sign out that device.")),
+  });
+  const revokeOthers = useMutation({
+    mutationFn: () => api.revokeOtherSessions(),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["sessions"] }); notify("ok", "Signed out your other devices."); },
+    onError: (e) => notify("error", errMsg(e, "Couldn't sign out the other devices.")),
+  });
+  const sessions = q.data ?? [];
+
+  return (
+    <section className={`card ${styles.panel}`}>
+      <div className={styles.panelHead}>
+        <div>
+          <h2 className={styles.panelTitle}>Signed-in devices</h2>
+          <span className={styles.panelNote}>Devices currently signed in to your account. Sign out any you don't recognize.</span>
+        </div>
+      </div>
+      {q.isLoading ? (
+        <div className={styles.skeleton} style={{ height: 72, borderRadius: "var(--r-md)" }} />
+      ) : sessions.length === 0 ? (
+        <p className={styles.note}>No active sessions.</p>
+      ) : (
+        <ul className={styles.stack} style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          {sessions.map((s) => (
+            <li key={s.id} className={styles.field}>
+              <div className={styles.fieldValue}>
+                {s.device_label}{" "}
+                {s.current && <span className={`${styles.badge} ${styles.badgeOn}`}><span className={styles.badgeDot} aria-hidden />This device</span>}
+              </div>
+              <span className={styles.panelNote}>
+                {s.ip_address ? `${s.ip_address} · ` : ""}Last active {new Date(s.last_seen_at).toLocaleString()}
+              </span>
+              {!s.current && (
+                <div className={styles.actions} style={{ justifyContent: "flex-start", marginTop: "var(--sp-2)" }}>
+                  <button className="btn btn-ghost" onClick={() => revoke.mutate(s.id)} disabled={revoke.isPending}>Sign out</button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {sessions.length > 1 && (
+        <div className={styles.actions}>
+          <button className="btn btn-ghost" onClick={() => revokeOthers.mutate()} disabled={revokeOthers.isPending}>
+            {revokeOthers.isPending ? "Signing out…" : "Sign out all other devices"}
           </button>
         </div>
       )}
