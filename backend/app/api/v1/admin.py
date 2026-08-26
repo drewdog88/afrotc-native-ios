@@ -15,7 +15,7 @@ from app.schemas.admin import ActivityLogOut, AdminUserCreate, AdminUserUpdate
 from app.schemas.auth import UserOut
 from app.schemas.common import Message, Page
 from app.schemas.intake import IntakeSettingsOut, IntakeSettingsUpdate
-from app.services import otp, trusted_devices
+from app.services import otp, sessions, trusted_devices
 from app.services.activity import record_activity
 from app.services.crud import CRUDBase
 
@@ -150,6 +150,23 @@ def admin_revoke_trusted_devices(
         details="revoked trusted devices", request=request,
     )
     return Message(detail=f"Revoked {n} device(s)")
+
+
+@router.post("/users/{user_id}/revoke-sessions", response_model=Message)
+def admin_revoke_sessions(
+    user_id: int,
+    request: Request,
+    actor: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> Message:
+    user = _get_or_404(db, user_id)
+    n = sessions.revoke_all(db, user)
+    record_activity(
+        db, user=actor, action="UPDATE", table_name="users",
+        record_id=user.id, record_description=user.username,
+        details="revoked sessions", request=request,
+    )
+    return Message(detail=f"Signed out {n} device(s)")
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

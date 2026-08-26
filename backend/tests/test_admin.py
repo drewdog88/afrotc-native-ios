@@ -147,3 +147,11 @@ def test_admin_edit_duplicate_email_returns_409(
         json={"email": "shared@example.com"},
     )
     assert resp.status_code == 409, resp.text
+
+
+def test_admin_revoke_sessions(client, admin_user, auth_headers, make_user):
+    target = make_user("target", "Recruit123!")
+    client.post("/api/v1/auth/login", json={"username": "target", "password": "Recruit123!"})
+    r = client.post(f"/api/v1/admin/users/{target.id}/revoke-sessions", headers=auth_headers)
+    assert r.status_code == 200
+    assert "device" in r.json()["detail"]
