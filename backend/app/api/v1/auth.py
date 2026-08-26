@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_session, get_current_user
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import (
@@ -25,7 +25,7 @@ from app.core.security import (
     now_utc,
     verify_password,
 )
-from app.models import PasswordHistory, User
+from app.models import AuthSession, PasswordHistory, User
 from app.schemas.auth import (
     AccessToken,
     ForgotPasswordRequest,
@@ -41,7 +41,7 @@ from app.schemas.auth import (
     UserOut,
 )
 from app.schemas.common import Message
-from app.services import otp, trusted_devices
+from app.services import otp, sessions, trusted_devices
 from app.services.activity import record_activity
 from app.services.email import send_2fa_code
 
@@ -83,9 +83,10 @@ def _apply_new_password(db: Session, user: User, new_password: str) -> None:
         user.password_expires_at = now_utc() + timedelta(days=settings.password_expiry_days)
 
 
-def _issue_token_pair(user: User) -> tuple[str, str]:
+def _issue_token_pair(user: User, sid: str) -> tuple[str, str]:
     subject = str(user.id)
-    return create_access_token(subject), create_refresh_token(subject)
+    claim = {"sid": sid}
+    return create_access_token(subject, claim), create_refresh_token(subject, claim)
 
 
 def _record_login(db: Session, user: User, request: Request) -> None:
@@ -120,7 +121,8 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -
         cookie_token = request.cookies.get(settings.trusted_device_cookie_name)
         if trusted_devices.find_valid(db, user, body.trust_token or cookie_token):
             _record_login(db, user, request)
-            access, refresh = _issue_token_pair(user)
+            session = sessions.start(db, user, request)
+            access, refresh = _issue_token_pair(user, session.sid)
             return LoginResponse(
                 access_token=access, refresh_token=refresh,
                 force_password_change=user.force_password_change or user.is_password_expired,
@@ -136,7 +138,8 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -
         )
 
     _record_login(db, user, request)
-    access, refresh = _issue_token_pair(user)
+    session = sessions.start(db, user, request)
+    access, refresh = _issue_token_pair(user, session.sid)
     return LoginResponse(
         access_token=access, refresh_token=refresh,
         force_password_change=user.force_password_change or user.is_password_expired,
@@ -182,7 +185,8 @@ def login_verify(
             max_age=settings.trusted_device_ttl_days * 24 * 3600,
             httponly=True, secure=True, samesite="lax",
         )
-    access, refresh = _issue_token_pair(user)
+    session = sessions.start(db, user, request)
+    access, refresh = _issue_token_pair(user, session.sid)
     return LoginVerifyResponse(
         access_token=access, refresh_token=refresh,
         force_password_change=user.force_password_change or user.is_password_expired,
@@ -215,18 +219,27 @@ def refresh(body: RefreshRequest, db: Session = Depends(get_db)) -> AccessToken:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         )
+    session = sessions.get_valid(db, payload.get("sid"))
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        )
     user = db.get(User, int(payload["sub"]))
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         )
-    return AccessToken(access_token=create_access_token(str(user.id)))
+    sessions.touch(db, session)
+    return AccessToken(access_token=create_access_token(str(user.id), {"sid": session.sid}))
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout() -> None:
-    # Stateless JWT: clients discard their tokens. Endpoint exists for symmetry
-    # and so future token-revocation can hook in without a client change.
+def logout(
+    session: AuthSession = Depends(get_current_session),
+    db: Session = Depends(get_db),
+) -> None:
+    session.revoked_at = now_utc()
+    db.commit()
     return None
 
 
