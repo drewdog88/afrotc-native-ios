@@ -1,15 +1,16 @@
 import SwiftUI
 
-/// Sign-in screen. Mirrors the web login: username + password, optional TOTP.
+/// Sign-in screen. Mirrors the web login: username + password. When the account
+/// has email 2FA, `session.login` returns a challenge and we present the verify
+/// sheet rather than collecting a code inline.
 struct LoginView: View {
     @EnvironmentObject private var session: Session
     @State private var username = ""
     @State private var password = ""
-    @State private var totp = ""
     @State private var showForgot = false
     @FocusState private var focus: Field?
 
-    private enum Field { case username, password, totp }
+    private enum Field { case username, password }
 
     var body: some View {
         ZStack {
@@ -43,10 +44,6 @@ struct LoginView: View {
                         .focused($focus, equals: .password)
                         .submitLabel(.go)
                         .onSubmit { submit() }
-
-                    TextField("2FA code (if enabled)", text: $totp)
-                        .keyboardType(.numberPad)
-                        .focused($focus, equals: .totp)
                 }
                 .textFieldStyle(.roundedBorder)
 
@@ -78,10 +75,14 @@ struct LoginView: View {
             .frame(maxWidth: 420)
         }
         .sheet(isPresented: $showForgot) { ForgotPasswordView() }
+        .sheet(item: $session.challenge) { _ in
+            TwoFactorVerifyView()
+                .environmentObject(session)
+        }
     }
 
     private func submit() {
         focus = nil
-        Task { await session.login(username: username, password: password, totpCode: totp) }
+        Task { await session.login(username: username, password: password) }
     }
 }
