@@ -1,0 +1,10 @@
+.banner {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-4);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent, #b98a2e) 10%, var(--surface));
+  color: var(--ink); font-size: var(--t-sm);
+}
+.text { flex: 1; }
+.actions { display: flex; gap: var(--sp-3); flex: none; }
+@media (max-width: 620px) { .banner { flex-direction: column; align-items: stretch; } }
