@@ -267,6 +267,7 @@ def change_password(
     _reject_password_reuse(db, user, body.new_password)
     _apply_new_password(db, user, body.new_password)
     trusted_devices.revoke_all(db, user)
+    sessions.revoke_all(db, user)
     db.commit()
     db.refresh(user)
     return user
@@ -318,6 +319,7 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)) ->
     _reject_password_reuse(db, user, body.new_password)
     _apply_new_password(db, user, body.new_password)
     trusted_devices.revoke_all(db, user)
+    sessions.revoke_all(db, user)
     # Recovery clears the lockout so the user can sign in right away.
     user.is_locked = False
     user.failed_login_attempts = 0

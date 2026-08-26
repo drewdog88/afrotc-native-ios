@@ -123,13 +123,6 @@
 .badgeOn .badgeDot {
   background: var(--ok);
 }
-.badgeOff {
-  color: var(--muted);
-  background: var(--surface-2);
-}
-.badgeOff .badgeDot {
-  background: var(--muted);
-}
 
 /* ---- Toast ---- */
 .toast {

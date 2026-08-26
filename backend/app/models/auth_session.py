@@ -13,7 +13,7 @@ class AuthSession(Base):
     __tablename__ = "auth_sessions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     sid: Mapped[str] = mapped_column(String(36), unique=True, index=True)
     device_label: Mapped[str] = mapped_column(String(255), default="")
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)

@@ -64,3 +64,56 @@ def test_reset_password_revokes_trusted_devices(
     )
     assert resp.status_code == 200, resp.text
     assert _count_live_devices(user.id) == 0
+
+
+def test_change_password_revokes_session(
+    client: TestClient, make_user: Callable[..., User], monkeypatch
+) -> None:
+    monkeypatch.setattr(otp, "generate_code", lambda: "123456")
+    monkeypatch.setattr(email, "send_email", lambda *a, **k: True)
+    make_user("pw3", "OldPass123!", two_factor_enabled=True, two_factor_method="email")
+    challenge = client.post(
+        "/api/v1/auth/login", json={"username": "pw3", "password": "OldPass123!"}
+    ).json()["challenge_token"]
+    tokens = client.post(
+        "/api/v1/auth/login/verify",
+        json={"challenge_token": challenge, "code": "123456"},
+    ).json()
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    assert client.get("/api/v1/auth/me", headers=headers).status_code == 200
+
+    resp = client.post(
+        "/api/v1/auth/change-password",
+        headers=headers,
+        json={"current_password": "OldPass123!", "new_password": "BrandNew123!"},
+    )
+    assert resp.status_code == 200
+
+    # session revoked -> the old access token no longer works
+    assert client.get("/api/v1/auth/me", headers=headers).status_code == 401
+
+
+def test_reset_password_revokes_session(
+    client: TestClient, make_user: Callable[..., User], monkeypatch
+) -> None:
+    monkeypatch.setattr(otp, "generate_code", lambda: "123456")
+    monkeypatch.setattr(email, "send_email", lambda *a, **k: True)
+    make_user("pw4", "OldPass123!", two_factor_enabled=True, two_factor_method="email")
+    challenge = client.post(
+        "/api/v1/auth/login", json={"username": "pw4", "password": "OldPass123!"}
+    ).json()["challenge_token"]
+    tokens = client.post(
+        "/api/v1/auth/login/verify",
+        json={"challenge_token": challenge, "code": "123456"},
+    ).json()
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    assert client.get("/api/v1/auth/me", headers=headers).status_code == 200
+
+    resp = client.post(
+        "/api/v1/auth/reset-password",
+        json={"username": "pw4", "secret_answer": "695", "new_password": "BrandNew123!"},
+    )
+    assert resp.status_code == 200, resp.text
+
+    # session revoked -> the old access token no longer works
+    assert client.get("/api/v1/auth/me", headers=headers).status_code == 401
