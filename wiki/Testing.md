@@ -5,7 +5,7 @@
 **An honest snapshot of what's verified today.**
 
 ![GitHub Actions](https://img.shields.io/badge/CI-2088FF?style=flat-square&logo=githubactions&logoColor=white)
-![pytest](https://img.shields.io/badge/pytest-162_passing-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
+![pytest](https://img.shields.io/badge/pytest-183_passing-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
 ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=flat-square)
 
 </div>
@@ -14,7 +14,7 @@
 
 ```mermaid
 flowchart TD
-    subgraph api["🧪 Backend suite · pytest (162 tests)"]
+    subgraph api["🧪 Backend suite · pytest (183 tests)"]
         UNIT["Every /api/v1 endpoint module<br>auth · recruits · cadets · contacts<br>events · followups · materials<br>imports · analytics · admin · profile · export"]
     end
     subgraph now["✅ Also runs"]
@@ -31,7 +31,7 @@ flowchart TD
 
 ## The backend suite
 
-**162 tests across 29 files** in `backend/tests/`, green today. Run them with:
+**183 tests across 33 files** in `backend/tests/`, green today. Run them with:
 
 ```bash
 cd backend && uv run pytest -q       # 95 passed
@@ -47,6 +47,7 @@ What's covered:
 - **Cadets · Contacts · Events** — full CRUD, search, and filter coverage with real PNW data.
 - **Follow-ups** — CRUD, the `assignee=me` / status / `due_before` filters, and the `/complete` action (including the already-completed guard).
 - **Profile & email 2FA** — self-service profile edits and the full email-2FA lifecycle (enroll → verify the emailed code → enable → disable, which also revokes trusted devices), the one-time enrollment-prompt dismissal, and trusted-device listing/revocation (single, others, and admin-forced).
+- **Sessions** — a login creates a revocable server-side session; revoking it (self, others, or admin-forced) or signing out signs that device out immediately, and `sid`-less tokens are rejected.
 - **Materials** — upload enforces `MAX_UPLOAD_BYTES` (413), download streams the stored `bytea`.
 - **Imports** — `POST /recruits/import` returns per-row validation errors.
 - **Exports** — CSV/XLSX/PDF stream for every entity; unknown entity/format is a 422.

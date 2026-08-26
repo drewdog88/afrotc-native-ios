@@ -11,7 +11,7 @@ Pacific Northwest.
 ![Swift](https://img.shields.io/badge/SwiftUI-F05138?style=flat-square&logo=swift&logoColor=white)
 ![Postgres](https://img.shields.io/badge/Neon_Postgres-00E599?style=flat-square&logo=postgresql&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
-![Tests](https://img.shields.io/badge/pytest-162_passing-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
+![Tests](https://img.shields.io/badge/pytest-183_passing-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
 
 </div>
 
