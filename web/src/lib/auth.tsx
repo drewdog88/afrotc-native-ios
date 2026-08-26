@@ -11,6 +11,8 @@ interface AuthState {
   canWrite: boolean;
   login: (username: string, password: string) => Promise<LoginResult>;
   completeVerify: (challengeToken: string, code: string, trustDevice: boolean) => Promise<void>;
+  /** Re-fetches the current user (e.g. after 2FA enrollment state changes). */
+  refresh: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -57,6 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const refresh = useCallback(async (): Promise<void> => {
+    setUser(await api.me());
+  }, []);
+
   const logout = useCallback(async () => {
     await api.logout();
     setUser(null);
@@ -65,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canWrite = user != null && user.role !== "viewer";
 
   return (
-    <AuthContext.Provider value={{ user, loading, canWrite, login, completeVerify, logout }}>
+    <AuthContext.Provider value={{ user, loading, canWrite, login, completeVerify, refresh, logout }}>
       {children}
     </AuthContext.Provider>
   );
