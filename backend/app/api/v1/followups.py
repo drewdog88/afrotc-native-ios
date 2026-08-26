@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,6 +13,7 @@ from app.core.security import now_utc
 from app.models import FollowUp, FollowUpStatus, User
 from app.schemas.common import Page
 from app.schemas.followup import FollowUpCreate, FollowUpOut, FollowUpUpdate
+from app.services.activity import record_activity
 from app.services.crud import CRUDBase
 
 router = APIRouter(prefix="/followups", tags=["followups"])
@@ -120,11 +121,26 @@ def update_followup(
 @router.delete("/{followup_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_followup(
     followup_id: int,
-    _: User = Depends(require_write),
+    request: Request,
+    actor: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     followup = _get_or_404(db, followup_id)
+    # Capture identity + context before the row is gone. The free-text note
+    # may hold PII, so the audit trail records only status + due date.
+    deleted_id = followup.id
+    details = f"{followup.status} · due {followup.due_date:%Y-%m-%d}"
     crud.delete(db, followup)
+    record_activity(
+        db,
+        user=actor,
+        action="DELETE",
+        table_name="follow_up",
+        record_id=deleted_id,
+        record_description=f"Follow-up #{deleted_id}",
+        details=details,
+        request=request,
+    )
 
 
 @router.post("/{followup_id}/complete", response_model=FollowUpOut)

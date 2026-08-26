@@ -4,6 +4,7 @@
    signed-in user being an admin; recruiters see a restricted notice instead. */
 import { useEffect, useState, type FormEvent } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { activityLabel } from "../lib/activityLabel";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import type { components } from "../api/schema";
@@ -618,7 +619,7 @@ function ActivityPanel() {
               {sorted.map((ev: ActivityLogOut) => (
                 <tr key={ev.id} className={styles.rowStatic}>
                   <td>
-                    <div className={styles.name}>{ev.action}</div>
+                    <div className={styles.name}>{activityLabel(ev.action, ev.table_name)}</div>
                     {ev.details && <div className={styles.sub}>{ev.details}</div>}
                   </td>
                   <td className={styles.colHide}>

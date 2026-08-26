@@ -7,7 +7,7 @@ to university contacts and include geolocation for mapping.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import Pagination, get_current_user, pagination, require_write
@@ -15,6 +15,7 @@ from app.core.database import get_db
 from app.models import RecruitmentEvent, User
 from app.schemas.common import Page
 from app.schemas.event import EventCreate, EventOut, EventUpdate
+from app.services.activity import record_activity
 from app.services.crud import CRUDBase
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -83,8 +84,25 @@ def update_event(
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_event(
     event_id: int,
-    _: User = Depends(require_write),
+    request: Request,
+    actor: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     event = _get_or_404(db, event_id)
+    # Capture identity + context before the row is gone.
+    deleted_id = event.id
+    deleted_title = event.title
+    details = f"{event.event_type} · {event.event_date}"
+    if event.location:
+        details += f" · {event.location}"
     crud.delete(db, event)
+    record_activity(
+        db,
+        user=actor,
+        action="DELETE",
+        table_name="recruitment_event",
+        record_id=deleted_id,
+        record_description=deleted_title,
+        details=details,
+        request=request,
+    )

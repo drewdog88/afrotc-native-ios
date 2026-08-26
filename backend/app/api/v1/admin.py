@@ -188,8 +188,9 @@ def delete_user(
             detail="Cannot delete the last admin user",
         )
 
-    # Capture identity before the row is gone.
+    # Capture identity + context before the row is gone.
     deleted_id, deleted_username = user.id, user.username
+    details = f"role: {user.role}"
     crud.delete(db, user)
     record_activity(
         db,
@@ -198,6 +199,7 @@ def delete_user(
         table_name="users",
         record_id=deleted_id,
         record_description=deleted_username,
+        details=details,
         request=request,
     )
 

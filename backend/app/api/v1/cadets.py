@@ -1,7 +1,7 @@
 """Cadet CRUD endpoints."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import Pagination, get_current_user, pagination, require_write
@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.models import Cadet, User
 from app.schemas.cadet import CadetCreate, CadetOut, CadetUpdate
 from app.schemas.common import Page
+from app.services.activity import record_activity
 from app.services.crud import CRUDBase
 
 router = APIRouter(prefix="/cadets", tags=["cadets"])
@@ -77,8 +78,26 @@ def update_cadet(
 @router.delete("/{cadet_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_cadet(
     cadet_id: int,
-    _: User = Depends(require_write),
+    request: Request,
+    actor: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     cadet = _get_or_404(db, cadet_id)
+    # Capture identity + context before the row is gone (no PII in details).
+    deleted_id = cadet.id
+    deleted_name = f"{cadet.first_name} {cadet.last_name}"
+    details = (
+        f"{cadet.cadet_rank} · {cadet.major} · "
+        f"class of {cadet.graduation_year} · {cadet.status}"
+    )
     crud.delete(db, cadet)
+    record_activity(
+        db,
+        user=actor,
+        action="DELETE",
+        table_name="cadet",
+        record_id=deleted_id,
+        record_description=deleted_name,
+        details=details,
+        request=request,
+    )

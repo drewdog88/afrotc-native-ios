@@ -135,9 +135,10 @@ def delete_recruit(
     db: Session = Depends(get_db),
 ) -> None:
     recruit = _get_or_404(db, recruit_id)
-    # Capture identity before the row is gone.
+    # Capture identity + context before the row is gone (no PII in details).
     deleted_id = recruit.id
     deleted_name = f"{recruit.first_name} {recruit.last_name}"
+    details = f"stage: {recruit.stage} · {recruit.school_type} · {recruit.current_school}"
     crud.delete(db, recruit)
     record_activity(
         db,
@@ -146,6 +147,7 @@ def delete_recruit(
         table_name="potential_recruit",
         record_id=deleted_id,
         record_description=deleted_name,
+        details=details,
         request=request,
     )
 

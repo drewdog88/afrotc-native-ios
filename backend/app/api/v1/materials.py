@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.models import ExternalLink, RecruitmentDocument, User
 from app.schemas.common import Page
 from app.schemas.material import DocumentOut, LinkCreate, LinkOut, LinkUpdate
+from app.services.activity import record_activity
 from app.services.crud import CRUDBase
 
 router = APIRouter(prefix="/materials", tags=["materials"])
@@ -100,11 +101,26 @@ def update_link(
 @router.delete("/links/{link_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_link(
     link_id: int,
-    _: User = Depends(require_write),
+    request: Request,
+    actor: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     link = _get_link_or_404(db, link_id)
+    # Capture identity + context before the row is gone.
+    deleted_id = link.id
+    deleted_title = link.title
+    details = f"category: {link.category}"
     link_crud.delete(db, link)
+    record_activity(
+        db,
+        user=actor,
+        action="DELETE",
+        table_name="external_link",
+        record_id=deleted_id,
+        record_description=deleted_title,
+        details=details,
+        request=request,
+    )
 
 
 # ---- Documents ----
@@ -212,8 +228,23 @@ async def download_document(
 @router.delete("/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_document(
     doc_id: int,
-    _: User = Depends(require_write),
+    request: Request,
+    actor: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     doc = _get_doc_or_404(db, doc_id)
+    # Capture identity + context before the row is gone.
+    deleted_id = doc.id
+    deleted_title = doc.title
+    details = f"category: {doc.category}"
     doc_crud.delete(db, doc)
+    record_activity(
+        db,
+        user=actor,
+        action="DELETE",
+        table_name="recruitment_document",
+        record_id=deleted_id,
+        record_description=deleted_title,
+        details=details,
+        request=request,
+    )

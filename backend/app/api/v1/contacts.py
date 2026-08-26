@@ -5,7 +5,7 @@ universities and high schools. Includes geographic coordinates for map views.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import Pagination, get_current_user, pagination, require_write
@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.models import UniversityContact, User
 from app.schemas.common import Page
 from app.schemas.contact import ContactCreate, ContactOut, ContactUpdate
+from app.services.activity import record_activity
 from app.services.crud import CRUDBase
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
@@ -82,8 +83,25 @@ def update_contact(
 @router.delete("/{contact_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_contact(
     contact_id: int,
-    _: User = Depends(require_write),
+    request: Request,
+    actor: User = Depends(require_write),
     db: Session = Depends(get_db),
 ) -> None:
     contact = _get_or_404(db, contact_id)
+    # Capture identity + context before the row is gone (no PII in details).
+    deleted_id = contact.id
+    deleted_name = contact.contact_name
+    details = contact.university_name
+    if contact.contact_title:
+        details += f" · {contact.contact_title}"
     crud.delete(db, contact)
+    record_activity(
+        db,
+        user=actor,
+        action="DELETE",
+        table_name="university_contact",
+        record_id=deleted_id,
+        record_description=deleted_name,
+        details=details,
+        request=request,
+    )
