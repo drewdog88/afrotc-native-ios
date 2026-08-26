@@ -37,6 +37,7 @@ export type IntakeSettingsUpdate = Schemas["IntakeSettingsUpdate"];
 const BASE = import.meta.env.VITE_API_BASE ?? "/api/v1";
 const ACCESS_KEY = "det695.access";
 const REFRESH_KEY = "det695.refresh";
+const TRUST_KEY = "det695.trust";
 
 export const tokens = {
   get access() {
@@ -45,7 +46,7 @@ export const tokens = {
   get refresh() {
     return localStorage.getItem(REFRESH_KEY);
   },
-  set(pair: { access_token: string; refresh_token: string }) {
+  set(pair: TokenPair) {
     localStorage.setItem(ACCESS_KEY, pair.access_token);
     localStorage.setItem(REFRESH_KEY, pair.refresh_token);
   },
@@ -54,6 +55,28 @@ export const tokens = {
     localStorage.removeItem(REFRESH_KEY);
   },
 };
+
+// Persists the "remember this device" token returned after a successful 2FA
+// verification, so a subsequent login can skip the challenge. Never cleared
+// on logout — trusting a device is independent of any one session.
+export const trust = {
+  get(): string | null {
+    return localStorage.getItem(TRUST_KEY);
+  },
+  set(t: string): void {
+    localStorage.setItem(TRUST_KEY, t);
+  },
+  clear(): void {
+    localStorage.removeItem(TRUST_KEY);
+  },
+};
+
+type LoginResponse = Schemas["LoginResponse"];
+type LoginVerifyResponse = Schemas["LoginVerifyResponse"];
+
+export type LoginResult =
+  | { kind: "authed" }
+  | { kind: "challenge"; challengeToken: string; method: string };
 
 export class ApiError extends Error {
   status: number;
@@ -145,14 +168,47 @@ export const api = {
   raw: (path: string) => request<Response>(path, { raw: true }),
 
   // Auth is special: login doesn't send a bearer, and stores the returned pair.
-  async login(username: string, password: string, totp_code?: string): Promise<TokenPair> {
-    const pair = await request<TokenPair>("/auth/login", {
+  async login(username: string, password: string): Promise<LoginResult> {
+    const res = await request<LoginResponse>("/auth/login", {
       method: "POST",
       auth: false,
-      body: { username, password, totp_code },
+      body: { username, password, trust_token: trust.get() ?? undefined },
     });
-    tokens.set(pair);
-    return pair;
+    if (res.two_factor_required) {
+      return {
+        kind: "challenge",
+        challengeToken: res.challenge_token as string,
+        method: res.method ?? "email",
+      };
+    }
+    tokens.set({
+      access_token: res.access_token as string,
+      refresh_token: res.refresh_token as string,
+      token_type: res.token_type ?? "bearer",
+      force_password_change: res.force_password_change ?? false,
+    });
+    return { kind: "authed" };
+  },
+  async loginVerify(challengeToken: string, code: string, trustDevice: boolean): Promise<void> {
+    const res = await request<LoginVerifyResponse>("/auth/login/verify", {
+      method: "POST",
+      auth: false,
+      body: { challenge_token: challengeToken, code, trust_device: trustDevice },
+    });
+    tokens.set({
+      access_token: res.access_token,
+      refresh_token: res.refresh_token,
+      token_type: res.token_type ?? "bearer",
+      force_password_change: res.force_password_change ?? false,
+    });
+    if (res.trust_token) trust.set(res.trust_token);
+  },
+  async loginResend(challengeToken: string): Promise<void> {
+    await request("/auth/login/resend", {
+      method: "POST",
+      auth: false,
+      body: { challenge_token: challengeToken },
+    });
   },
   async logout(): Promise<void> {
     try {
