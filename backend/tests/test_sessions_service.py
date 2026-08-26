@@ -1,3 +1,4 @@
+from datetime import timedelta
 from types import SimpleNamespace
 
 from app.core import security
@@ -59,3 +60,56 @@ def test_revoke_others_keeps_current():
         n = sessions.revoke_others(db, user, keep.sid)
         assert n == 2
         assert [s.id for s in sessions.list_active(db, user)] == [keep.id]
+
+
+def test_get_valid_none_for_missing_sid():
+    with TestingSessionLocal() as db:
+        assert sessions.get_valid(db, None) is None
+        assert sessions.get_valid(db, "") is None
+        assert sessions.get_valid(db, "not-a-real-sid") is None
+
+
+def test_get_valid_none_for_revoked_session():
+    with TestingSessionLocal() as db:
+        user = _user(db)
+        s = sessions.start(db, user, _req())
+        assert sessions.revoke(db, user, s.id) is True
+        assert sessions.get_valid(db, s.sid) is None
+
+
+def test_get_valid_none_for_expired_session():
+    with TestingSessionLocal() as db:
+        user = _user(db)
+        s = sessions.start(db, user, _req())
+        s.expires_at = security.now_utc() - timedelta(days=1)
+        db.commit()
+        assert sessions.get_valid(db, s.sid) is None
+
+
+def test_get_valid_returns_row_for_valid_session():
+    with TestingSessionLocal() as db:
+        user = _user(db)
+        s = sessions.start(db, user, _req())
+        found = sessions.get_valid(db, s.sid)
+        assert found is not None
+        assert found.id == s.id
+
+
+def test_touch_advances_last_seen_at():
+    with TestingSessionLocal() as db:
+        user = _user(db)
+        s = sessions.start(db, user, _req())
+        old_last_seen = s.last_seen_at
+        sessions.touch(db, s)
+        assert s.last_seen_at >= old_last_seen
+
+
+def test_revoke_all_revokes_every_active_session():
+    with TestingSessionLocal() as db:
+        user = _user(db)
+        sessions.start(db, user, _req())
+        sessions.start(db, user, _req())
+        sessions.start(db, user, _req())
+        n = sessions.revoke_all(db, user)
+        assert n == 3
+        assert sessions.list_active(db, user) == []
