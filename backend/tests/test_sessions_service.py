@@ -3,17 +3,28 @@ from types import SimpleNamespace
 
 from app.core import security
 from app.core.security import hash_password
-from app.models import AuthSession, User
+from app.models import User
 from app.models.enums import UserRole
 from app.services import sessions
 from tests.conftest import TestingSessionLocal
 
 
 def _user(db, name="u"):
-    u = User(username=name, email=f"{name}@det695.local", password_hash=hash_password("x"),
-             first_name="A", last_name="B", role=UserRole.RECRUITER.value, is_active=True,
-             password_expires_at=None, secret_question="q", secret_answer_hash=hash_password("a"))
-    db.add(u); db.commit(); db.refresh(u)
+    u = User(
+        username=name,
+        email=f"{name}@det695.local",
+        password_hash=hash_password("x"),
+        first_name="A",
+        last_name="B",
+        role=UserRole.RECRUITER.value,
+        is_active=True,
+        password_expires_at=None,
+        secret_question="q",
+        secret_answer_hash=hash_password("a"),
+    )
+    db.add(u)
+    db.commit()
+    db.refresh(u)
     return u
 
 

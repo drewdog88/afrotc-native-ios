@@ -1,8 +1,8 @@
 from datetime import timedelta
 
 from app.core import security
-from app.models import AuthSession, User
 from app.core.security import hash_password
+from app.models import AuthSession, User
 from app.models.enums import UserRole
 from tests.conftest import TestingSessionLocal
 
@@ -13,7 +13,9 @@ def _user(db) -> User:
         first_name="S", last_name="S", role=UserRole.RECRUITER.value, is_active=True,
         password_expires_at=None, secret_question="q", secret_answer_hash=hash_password("a"),
     )
-    db.add(u); db.commit(); db.refresh(u)
+    db.add(u)
+    db.commit()
+    db.refresh(u)
     return u
 
 
@@ -26,7 +28,9 @@ def test_auth_session_roundtrips():
             ip_address="1.2.3.4", user_agent="UA", created_at=now,
             last_seen_at=now, expires_at=now + timedelta(days=14),
         )
-        db.add(row); db.commit(); db.refresh(row)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
         assert row.id is not None
         assert row.revoked_at is None
         assert row.sid == "abc123"
