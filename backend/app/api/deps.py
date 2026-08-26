@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import decode_token
-from app.models import User
+from app.models import AuthSession, User
 from app.models.enums import UserRole
+from app.services import sessions
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -21,20 +22,26 @@ _UNAUTHORIZED = HTTPException(
 )
 
 
-def get_current_user(
+def get_current_session(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
-) -> User:
+) -> AuthSession:
     if creds is None:
         raise _UNAUTHORIZED
     payload = decode_token(creds.credentials)
     if not payload or payload.get("type") != "access":
         raise _UNAUTHORIZED
-    try:
-        user_id = int(payload["sub"])
-    except (KeyError, ValueError, TypeError):
-        raise _UNAUTHORIZED from None
-    user = db.get(User, user_id)
+    session = sessions.get_valid(db, payload.get("sid"))
+    if session is None:
+        raise _UNAUTHORIZED
+    return session
+
+
+def get_current_user(
+    session: AuthSession = Depends(get_current_session),
+    db: Session = Depends(get_db),
+) -> User:
+    user = db.get(User, session.user_id)
     if user is None or not user.is_active:
         raise _UNAUTHORIZED
     return user

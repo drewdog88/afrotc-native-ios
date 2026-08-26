@@ -62,8 +62,10 @@ def create_access_token(subject: str, extra: dict[str, Any] | None = None) -> st
     )
 
 
-def create_refresh_token(subject: str) -> str:
-    return _create_token(subject, "refresh", timedelta(days=settings.refresh_token_expire_days))
+def create_refresh_token(subject: str, extra: dict[str, Any] | None = None) -> str:
+    return _create_token(
+        subject, "refresh", timedelta(days=settings.refresh_token_expire_days), extra
+    )
 
 
 def decode_token(token: str) -> dict[str, Any] | None:
