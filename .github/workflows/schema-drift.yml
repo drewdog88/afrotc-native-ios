@@ -1,0 +1,93 @@
+name: Schema Drift (prod DB vs repo migrations)
+
+# Vercel ships CODE ONLY and never runs Alembic, so a deploy that adds a migration
+# leaves the production Neon DB a revision behind until someone runs
+# `alembic upgrade head` by hand. That gap is invisible until a request first hits
+# the new table/column and 500s (UndefinedTable). This workflow makes it loud:
+# it compares the repo's migration head(s) against the revision recorded in prod's
+# alembic_version, and opens a GitHub issue (which emails you) on drift — no
+# external monitoring platform required. The check is READ-ONLY against the DB.
+#
+# Triggers:
+#   - on push to main that touches a migration → immediate "now apply it" reminder
+#   - daily schedule → catches a DB that was left behind (or restored to an old state)
+#   - manual (workflow_dispatch)
+#
+# Security note: the only DB input is the BACKUP_DATABASE_URL secret, passed via
+# env: (never interpolated into a run: line). No untrusted external input is used;
+# every run: interpolation is trusted github.* context.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/alembic/versions/**"
+      - "backend/scripts/check_migration_drift.py"
+      - ".github/workflows/schema-drift.yml"
+  schedule:
+    - cron: "30 9 * * *" # 09:30 UTC daily (just after the nightly backup)
+  workflow_dispatch:
+
+concurrency:
+  group: schema-drift
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write # open / append / close the drift alert issue
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv (+ Python)
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install backend deps
+        working-directory: backend
+        run: uv sync --frozen
+
+      - name: Check migration drift (read-only)
+        id: check
+        working-directory: backend
+        env:
+          # The prod Neon connection string (same secret the backup job uses).
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::BACKUP_DATABASE_URL secret is not set — cannot check drift."
+            exit 2
+          fi
+          uv run python scripts/check_migration_drift.py | tee "$GITHUB_STEP_SUMMARY"
+
+      - name: Alert on drift/error (open or append a GitHub issue)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Body from trusted GitHub context only (no external input).
+          BODY="$(printf 'Production database schema drift detected — the live DB is not at the repo migration head, or the check could not read its state.\n\nMost likely a migration was merged/deployed but never applied to prod. Vercel does not run Alembic; apply it against the DIRECT (non-pooled) Neon host:\n\n```\ncd backend\nDATABASE_URL=<direct postgresql+psycopg URL> uv run alembic upgrade head\n```\n\nRun (see the **Check migration drift** step for repo-vs-DB revisions): %s\n\nSee the Deployment wiki page. This issue auto-closes on the next green run.' "$RUN_URL")"
+          EXISTING="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label schema-drift --json number --jq '.[0].number' 2>/dev/null || true)"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          else
+            gh label create schema-drift --repo "$GITHUB_REPOSITORY" --color b60205 --description "Prod DB behind repo migrations" 2>/dev/null || true
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "🔴 Prod schema drift — DB behind repo migrations" --label schema-drift --body "$BODY"
+          fi
+
+      - name: Resolve alert on success (close any open drift issue)
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          EXISTING="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label schema-drift --json number --jq '.[].number' 2>/dev/null || true)"
+          for n in $EXISTING; do
+            gh issue close "$n" --repo "$GITHUB_REPOSITORY" \
+              --comment "✅ Schema drift resolved — prod DB is back at the repo head. Run: $RUN_URL"
+          done
