@@ -87,9 +87,13 @@ DATABASE_URL='postgresql+psycopg://USER:PW@HOST.neon.tech/neondb?sslmode=require
 Get the URL from `vercel env pull` or the Vercel dashboard (drop the `-pooler`
 segment for the direct host). See [Database](Database) for connection details.
 
-> **Prevention (not yet wired):** add `alembic upgrade head` as a deploy step, or
-> have the app's `lifespan` compare `alembic current` vs `heads` and log loudly on
-> drift, so code can't silently outrun the schema.
+> **Automated safeguard:** the [`schema-drift`](../.github/workflows/schema-drift.yml)
+> GitHub Action compares prod's applied revision against the repo head — on
+> migration-touching pushes to `main`, daily, and on demand — and opens a
+> `schema-drift` issue (which emails you) when the DB is behind, auto-closing it on
+> the next green run. So a lagging DB announces itself instead of 500-ing a user.
+> It's read-only and reuses the `BACKUP_DATABASE_URL` secret. You can also run the
+> check locally: `cd backend && DATABASE_URL=… uv run python scripts/check_migration_drift.py`.
 
 ## Deploy flow
 
