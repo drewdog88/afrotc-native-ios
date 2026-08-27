@@ -61,6 +61,18 @@ Open http://localhost:8000/docs for the interactive OpenAPI docs.
 entirely by Alembic; the app never auto-creates tables. See the
 [Database wiki page](https://github.com/drewdog88/afrotc-native-ios/wiki/Database).
 
+> **⚠️ Deploying a migration to prod is a manual step.** Vercel ships code only —
+> it does **not** run Alembic. A deploy that adds a migration leaves the prod DB a
+> revision behind, which surfaces as a **500** (`psycopg.errors.UndefinedTable`)
+> the first time an endpoint touches the new table/column. After merging a
+> migration, run it against the **direct** (non-pooled) Neon host with the
+> `postgresql+psycopg://` driver:
+> ```bash
+> DATABASE_URL='postgresql+psycopg://USER:PW@HOST.neon.tech/neondb?sslmode=require' \
+>   uv run alembic upgrade head   # then confirm: alembic current == alembic heads
+> ```
+> Full runbook: [Deployment wiki page](https://github.com/drewdog88/afrotc-native-ios/wiki/Deployment).
+
 ## Layout
 ```
 app/

@@ -58,7 +58,38 @@ Set on every response in `vercel.json`:
 - `BOOTSTRAP_ADMIN_*` — first-run admin seed (only used when `users` is empty).
 - `CORS_ORIGINS`, `CRON_SECRET`, and the storage/upload settings as needed.
 
-Migrations are **not** run by the build — apply Alembic against the **direct** (non-pooled) host before/after deploy as needed (see [Database](Database)).
+### ⚠️ Migrations are NOT run by the build — apply them yourself
+
+Vercel builds and ships **code only**; it never runs Alembic. Any deploy that
+includes a new migration leaves the **production Neon DB one revision behind**
+until you apply it by hand. The failure mode is silent at deploy time and only
+surfaces when a request first touches the new table/column:
+
+```
+psycopg.errors.UndefinedTable: relation "<table>" does not exist
+```
+
+→ a **500** on that endpoint. (This bit us once: session-tracking shipped the
+`auth_sessions` migration but it wasn't applied, so 2FA `login/verify` 500'd on
+the first `INSERT INTO auth_sessions` while the earlier-applied OTP columns still
+worked — making it look like a 2FA bug rather than a missing table.)
+
+**Rule for every deploy that adds a migration** (they're additive, so order is forgiving):
+
+```bash
+cd backend
+# DIRECT (non-pooled) host, and the +psycopg driver (matches prod / works locally)
+DATABASE_URL='postgresql+psycopg://USER:PW@HOST.neon.tech/neondb?sslmode=require' \
+  uv run alembic upgrade head
+# verify: `uv run alembic current` should equal `uv run alembic heads`
+```
+
+Get the URL from `vercel env pull` or the Vercel dashboard (drop the `-pooler`
+segment for the direct host). See [Database](Database) for connection details.
+
+> **Prevention (not yet wired):** add `alembic upgrade head` as a deploy step, or
+> have the app's `lifespan` compare `alembic current` vs `heads` and log loudly on
+> drift, so code can't silently outrun the schema.
 
 ## Deploy flow
 
