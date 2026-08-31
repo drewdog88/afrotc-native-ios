@@ -51,6 +51,28 @@ _BAD_CREDS = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password"
 )
 
+# The refresh cookie is only ever sent to the auth routes, so scope it there
+# rather than to the whole site. Browser clients rely on this httponly cookie
+# instead of storing the refresh token in JS-readable localStorage; native
+# clients (iOS) keep using the response/request body and simply ignore it.
+_REFRESH_COOKIE_PATH = "/api/v1/auth"
+
+
+def _set_refresh_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=settings.refresh_cookie_name,
+        value=token,
+        max_age=settings.refresh_token_expire_days * 24 * 3600,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path=_REFRESH_COOKIE_PATH,
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(settings.refresh_cookie_name, path=_REFRESH_COOKIE_PATH)
+
 
 def _find_user(db: Session, identifier: str) -> User | None:
     return db.scalar(
@@ -99,7 +121,9 @@ def _record_login(db: Session, user: User, request: Request) -> None:
 
 
 @router.post("/login", response_model=LoginResponse)
-def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -> LoginResponse:
+def login(
+    body: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)
+) -> LoginResponse:
     throttle.enforce(db, request, "login")
     user = _find_user(db, body.username)
     if user is None:
@@ -124,6 +148,7 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -
             _record_login(db, user, request)
             session = sessions.start(db, user, request)
             access, refresh = _issue_token_pair(user, session.sid)
+            _set_refresh_cookie(response, refresh)
             return LoginResponse(
                 access_token=access, refresh_token=refresh,
                 force_password_change=user.force_password_change or user.is_password_expired,
@@ -141,6 +166,7 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -
     _record_login(db, user, request)
     session = sessions.start(db, user, request)
     access, refresh = _issue_token_pair(user, session.sid)
+    _set_refresh_cookie(response, refresh)
     return LoginResponse(
         access_token=access, refresh_token=refresh,
         force_password_change=user.force_password_change or user.is_password_expired,
@@ -188,6 +214,7 @@ def login_verify(
         )
     session = sessions.start(db, user, request)
     access, refresh = _issue_token_pair(user, session.sid)
+    _set_refresh_cookie(response, refresh)
     return LoginVerifyResponse(
         access_token=access, refresh_token=refresh,
         force_password_change=user.force_password_change or user.is_password_expired,
@@ -214,8 +241,20 @@ def login_resend(body: ResendRequest, db: Session = Depends(get_db)) -> Message:
 
 
 @router.post("/refresh", response_model=AccessToken)
-def refresh(body: RefreshRequest, db: Session = Depends(get_db)) -> AccessToken:
-    payload = decode_token(body.refresh_token)
+def refresh(
+    request: Request, db: Session = Depends(get_db), body: RefreshRequest | None = None
+) -> AccessToken:
+    # Browser clients send nothing in the body — the refresh token rides in the
+    # httponly cookie. Native clients (iOS) still pass it in the body; the cookie
+    # takes precedence when both are present.
+    token = request.cookies.get(settings.refresh_cookie_name) or (
+        body.refresh_token if body else None
+    )
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        )
+    payload = decode_token(token)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
@@ -236,11 +275,13 @@ def refresh(body: RefreshRequest, db: Session = Depends(get_db)) -> AccessToken:
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(
+    response: Response,
     session: AuthSession = Depends(get_current_session),
     db: Session = Depends(get_db),
 ) -> None:
     session.revoked_at = now_utc()
     db.commit()
+    _clear_refresh_cookie(response)
     return None
 
 

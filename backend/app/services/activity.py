@@ -14,19 +14,19 @@ import logging
 from fastapi import Request
 from sqlalchemy.orm import Session
 
+from app.core.net import client_ip
 from app.models import ActivityLog, User
 
 logger = logging.getLogger("afrotc695.activity")
 
 
 def _client_ip(request: Request | None) -> str | None:
-    """First X-Forwarded-For hop (we run behind Vercel), else the socket peer."""
-    if request is None:
-        return None
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()[:45] or None
-    return request.client.host if request.client else None
+    """Real client IP behind Vercel (see app/core/net.py), capped to the column.
+
+    ``ip_address`` is a 45-char column (max INET6 text length), so truncate.
+    """
+    ip = client_ip(request)
+    return ip[:45] if ip else None
 
 
 def record_activity(
