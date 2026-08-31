@@ -76,6 +76,11 @@ class Settings(BaseSettings):
     trusted_device_ttl_days: int = 30
     trusted_device_cookie_name: str = "det695_trust"
 
+    # Refresh token is delivered to browser clients as an httponly cookie (the
+    # token is never persisted in JS-readable storage). Native clients (iOS)
+    # continue to use the refresh_token in the response body + request body.
+    refresh_cookie_name: str = "det695_refresh"
+
     # Cloudflare Turnstile secret (server-side verify). Empty disables verification
     # (local/dev) — set in production so the public form is bot-protected.
     turnstile_secret_key: str = ""
