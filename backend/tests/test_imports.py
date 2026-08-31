@@ -1,7 +1,10 @@
-"""Bulk import: per-row validation and unsupported-format handling."""
+"""Bulk import: per-row validation, unsupported-format, and size-cap handling."""
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
+
+from app.core.config import settings
 
 # Row 1 is valid; row 2 omits the required `current_school`.
 _CSV = (
@@ -42,6 +45,19 @@ def test_import_rejects_unsupported_format(
         files={"file": ("notes.txt", b"not a spreadsheet", "text/plain")},
     )
     assert resp.status_code == 400
+
+
+def test_import_over_the_limit_is_413(
+    client: TestClient, auth_headers: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "max_upload_bytes", 16)
+    oversized = (_CSV + "x" * 100).encode()
+    resp = client.post(
+        "/api/v1/recruits/import",
+        headers=auth_headers,
+        files={"file": ("big.csv", oversized, "text/csv")},
+    )
+    assert resp.status_code == 413
 
 
 def test_import_requires_auth(client: TestClient) -> None:

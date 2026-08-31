@@ -76,6 +76,13 @@ class Settings(BaseSettings):
     trusted_device_ttl_days: int = 30
     trusted_device_cookie_name: str = "det695_trust"
 
+    # Per-IP throttle on unauthenticated auth endpoints (login / reset / forgot).
+    # A backstop against lockout-DoS and credential brute-force: any single IP
+    # is capped at this many attempts per window. The per-account lockout still
+    # applies on top. Sized well above any legitimate burst.
+    auth_rate_limit_max: int = 20
+    auth_rate_limit_window_minutes: int = 15
+
     # Cloudflare Turnstile secret (server-side verify). Empty disables verification
     # (local/dev) — set in production so the public form is bot-protected.
     turnstile_secret_key: str = ""
