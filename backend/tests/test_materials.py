@@ -4,7 +4,30 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.v1.materials import _content_disposition
 from app.core.config import settings
+
+
+def test_content_disposition_neutralizes_dangerous_filenames() -> None:
+    # A quote / backslash / control char must not survive into the quoted
+    # ASCII fallback (it would break header quoting or inject a header).
+    header = _content_disposition('re"port\\\r\n.pdf')
+    fallback = header.split('filename="', 1)[1].split('"', 1)[0]
+    assert '"' not in fallback
+    assert "\\" not in fallback
+    assert "\r" not in fallback and "\n" not in fallback
+
+
+def test_content_disposition_preserves_unicode_via_rfc6266() -> None:
+    header = _content_disposition("résumé.pdf")
+    # Non-ASCII is dropped from the ASCII fallback but preserved percent-encoded
+    # in the filename* parameter.
+    assert "filename*=UTF-8''" in header
+    assert "r%C3%A9sum%C3%A9.pdf" in header
+
+
+def test_content_disposition_empty_falls_back() -> None:
+    assert 'filename="download"' in _content_disposition("")
 
 
 def test_upload_then_download_round_trips_bytes(

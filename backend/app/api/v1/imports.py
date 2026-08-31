@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_write
+from app.core.config import settings
 from app.core.database import get_db
 from app.models import PotentialRecruit, RecruitStageEvent, User
 from app.schemas.imports import ImportResult, ImportRowError
@@ -24,7 +25,16 @@ def _coerce_nan_to_none(row: dict) -> dict:
 
 def _parse_file_to_dataframe(file: UploadFile) -> pd.DataFrame:
     """Parse uploaded CSV or Excel file into a pandas DataFrame."""
-    content = file.file.read()
+    # Read one byte past the cap so we can detect oversize without slurping an
+    # arbitrarily large upload into memory (mirrors materials.py's guard).
+    content = file.file.read(settings.max_upload_bytes + 1)
+    if len(content) > settings.max_upload_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=(
+                f"File exceeds maximum {settings.max_upload_bytes} bytes"
+            ),
+        )
     filename = file.filename or ""
     content_type = file.content_type or ""
 
@@ -53,6 +63,10 @@ def import_recruits(
     """
     try:
         df = _parse_file_to_dataframe(file)
+    except HTTPException:
+        # Size-cap (413) and unsupported-format (400) rejections are already
+        # well-formed — don't re-wrap them as a generic parse failure.
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
