@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.net import client_ip
 from app.core.security import now_utc
 from app.models import PotentialRecruit
 
@@ -22,13 +23,11 @@ logger = logging.getLogger("afrotc695.spam")
 _SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 RATE_LIMIT_PER_HOUR = 30
 
-
-def client_ip(request) -> str | None:
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    client = getattr(request, "client", None)
-    return getattr(client, "host", None)
+# ``client_ip`` is re-exported from app.core.net so existing callers
+# (``from app.services.spam import client_ip``) keep working. Vercel overwrites
+# X-Forwarded-For to prevent spoofing; the helper prefers the non-overwritable
+# x-vercel-forwarded-for header. See app/core/net.py.
+__all__ = ["client_ip", "too_many_from_ip", "verify_turnstile", "RATE_LIMIT_PER_HOUR"]
 
 
 def verify_turnstile(token: str, remote_ip: str | None) -> bool:
