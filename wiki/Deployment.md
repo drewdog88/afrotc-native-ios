@@ -95,6 +95,14 @@ segment for the direct host). See [Database](Database) for connection details.
 > It's read-only and reuses the `BACKUP_DATABASE_URL` secret. You can also run the
 > check locally: `cd backend && DATABASE_URL=… uv run python scripts/check_migration_drift.py`.
 
+> **Applied-migration provenance** (why a past schema change exists):
+> `6bff7689c532` (applied 2026-08-23) made `activity_log.user_id` **nullable** so
+> that **public request-info form** submissions — which have no signed-in user —
+> can be recorded in the Activity Log. Before it was applied the submission itself
+> still succeeded and the lead was saved (audit logging is best-effort and never
+> fails the request); only the audit-log row was silently dropped, so public
+> submissions didn't appear in the admin Activity Log.
+
 ## Deploy flow
 
 ```mermaid
