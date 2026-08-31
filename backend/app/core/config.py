@@ -1,10 +1,17 @@
 """Application configuration, loaded from environment / .env."""
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Signing key sentinel: the only acceptable use is local dev. If this value is
+# still in effect on a deployed (Vercel) environment the app would silently sign
+# every JWT with a publicly-known string, so we refuse to boot — see the
+# model validator below.
+INSECURE_SECRET_KEY_DEFAULT = "dev-only-insecure-change-me"
 
 
 class Settings(BaseSettings):
@@ -28,8 +35,20 @@ class Settings(BaseSettings):
             )
         return v
 
+    @model_validator(mode="after")
+    def _require_real_secret_key_in_deploy(self):
+        # Vercel sets VERCEL=1 in every deployed runtime (prod & preview). If the
+        # insecure default is still in effect there, fail fast rather than sign
+        # forgeable tokens. Local dev / tests (no VERCEL var) are unaffected.
+        if self.secret_key == INSECURE_SECRET_KEY_DEFAULT and os.environ.get("VERCEL"):
+            raise ValueError(
+                "SECRET_KEY is unset (still the insecure default) in a deployed "
+                "environment. Set SECRET_KEY in the Vercel dashboard before deploying."
+            )
+        return self
+
     # Security
-    secret_key: str = "dev-only-insecure-change-me"
+    secret_key: str = INSECURE_SECRET_KEY_DEFAULT
     encryption_key: str = ""  # Fernet key for encrypting TOTP secrets at rest
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
