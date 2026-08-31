@@ -1,7 +1,10 @@
 /* Thin typed fetch client over the FastAPI backend.
-   Holds the JWT access/refresh pair, attaches the bearer token, and transparently
-   refreshes once on a 401 before giving up. Types are pulled from the generated
-   OpenAPI schema so request/response shapes stay in lockstep with the contract. */
+   Holds the short-lived JWT access token, attaches the bearer token, and
+   transparently refreshes once on a 401 before giving up. The refresh token is
+   NOT stored here — the backend delivers it as an httponly cookie the browser
+   sends automatically to /auth/refresh, so no long-lived token is exposed to JS
+   (an XSS can't read it). Types are pulled from the generated OpenAPI schema so
+   request/response shapes stay in lockstep with the contract. */
 import type { components } from "../api/schema";
 
 type Schemas = components["schemas"];
@@ -49,23 +52,23 @@ export type SessionOut = {
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api/v1";
 const ACCESS_KEY = "det695.access";
-const REFRESH_KEY = "det695.refresh";
+// Legacy key: the refresh token used to live in localStorage. It now rides in an
+// httponly cookie, so purge any stale value left in a returning user's browser.
+const LEGACY_REFRESH_KEY = "det695.refresh";
 const TRUST_KEY = "det695.trust";
+
+localStorage.removeItem(LEGACY_REFRESH_KEY);
 
 export const tokens = {
   get access() {
     return localStorage.getItem(ACCESS_KEY);
   },
-  get refresh() {
-    return localStorage.getItem(REFRESH_KEY);
-  },
-  set(pair: TokenPair) {
-    localStorage.setItem(ACCESS_KEY, pair.access_token);
-    localStorage.setItem(REFRESH_KEY, pair.refresh_token);
+  set(accessToken: string) {
+    localStorage.setItem(ACCESS_KEY, accessToken);
   },
   clear() {
     localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
+    localStorage.removeItem(LEGACY_REFRESH_KEY);
   },
 };
 
@@ -111,19 +114,20 @@ function messageFromDetail(detail: unknown, fallback: string): string {
 }
 
 async function refreshTokens(): Promise<boolean> {
-  const refresh = tokens.refresh;
-  if (!refresh) return false;
+  // The refresh token is in the httponly cookie; send an empty body with
+  // credentials so the browser attaches it. A new access token comes back.
   const res = await fetch(`${BASE}/auth/refresh`, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refresh }),
+    body: "{}",
   });
   if (!res.ok) {
     tokens.clear();
     return false;
   }
-  const pair = (await res.json()) as TokenPair;
-  tokens.set(pair);
+  const { access_token } = (await res.json()) as { access_token: string };
+  tokens.set(access_token);
   return true;
 }
 
@@ -150,7 +154,10 @@ async function request<T>(path: string, opts: RequestOptions = {}, retry = true)
     }
   }
 
-  const res = await fetch(`${BASE}${path}`, { method, headers, body: payload });
+  // credentials: "include" so the httponly refresh cookie is set on login/verify
+  // and cleared on logout (and sent to /auth/refresh), including in cross-origin
+  // local dev. The cookie is path-scoped to /auth, so it isn't sent elsewhere.
+  const res = await fetch(`${BASE}${path}`, { method, headers, body: payload, credentials: "include" });
 
   if (res.status === 401 && auth && retry && (await refreshTokens())) {
     return request<T>(path, opts, false);
@@ -194,12 +201,7 @@ export const api = {
         method: res.method ?? "email",
       };
     }
-    tokens.set({
-      access_token: res.access_token as string,
-      refresh_token: res.refresh_token as string,
-      token_type: res.token_type ?? "bearer",
-      force_password_change: res.force_password_change ?? false,
-    });
+    tokens.set(res.access_token as string);
     return { kind: "authed" };
   },
   async loginVerify(challengeToken: string, code: string, trustDevice: boolean): Promise<void> {
@@ -208,12 +210,7 @@ export const api = {
       auth: false,
       body: { challenge_token: challengeToken, code, trust_device: trustDevice },
     });
-    tokens.set({
-      access_token: res.access_token,
-      refresh_token: res.refresh_token,
-      token_type: res.token_type ?? "bearer",
-      force_password_change: res.force_password_change ?? false,
-    });
+    tokens.set(res.access_token);
     if (res.trust_token) trust.set(res.trust_token);
   },
   async loginResend(challengeToken: string): Promise<void> {

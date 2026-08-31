@@ -54,7 +54,9 @@ class AccessToken(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    # Optional: browser clients carry the refresh token in an httponly cookie and
+    # send an empty body; native clients pass it here.
+    refresh_token: str | None = None
 
 
 class PasswordChange(BaseModel):
