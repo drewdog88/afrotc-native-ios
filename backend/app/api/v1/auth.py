@@ -51,6 +51,12 @@ _BAD_CREDS = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password"
 )
 
+# A throwaway hash used only to equalize response timing when a username does
+# not exist: verifying against it costs the same as a real password check, so
+# "no such user" can't be distinguished from "wrong password" by latency. Not a
+# secret — its only job is to burn the same bcrypt time.
+_DUMMY_PASSWORD_HASH = hash_password("login-timing-equalizer")
+
 
 def _find_user(db: Session, identifier: str) -> User | None:
     return db.scalar(
@@ -101,8 +107,23 @@ def _record_login(db: Session, user: User, request: Request) -> None:
 @router.post("/login", response_model=LoginResponse)
 def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -> LoginResponse:
     user = _find_user(db, body.username)
+    # Verify the password BEFORE disclosing any account state. Someone who does
+    # not supply the correct password gets an identical generic 401 whether the
+    # username is unknown, wrong, locked, or disabled — so /login can't be used
+    # to enumerate accounts or their status. The dummy verify keeps the unknown-
+    # username path the same cost as a real check (no timing oracle).
     if user is None:
+        verify_password(body.password, _DUMMY_PASSWORD_HASH)
         raise _BAD_CREDS
+    if not verify_password(body.password, user.password_hash):
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= settings.max_failed_logins:
+            user.is_locked = True
+        db.commit()
+        raise _BAD_CREDS
+
+    # Password is correct — it is now safe to tell the real account owner why
+    # they can't proceed (locked / disabled), since they've proven ownership.
     if user.is_locked:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -110,12 +131,6 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -
         )
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
-    if not verify_password(body.password, user.password_hash):
-        user.failed_login_attempts += 1
-        if user.failed_login_attempts >= settings.max_failed_logins:
-            user.is_locked = True
-        db.commit()
-        raise _BAD_CREDS
 
     if user.is_2fa_active:
         cookie_token = request.cookies.get(settings.trusted_device_cookie_name)

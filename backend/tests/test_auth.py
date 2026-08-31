@@ -91,6 +91,33 @@ def test_disabled_account_cannot_log_in(
     assert resp.status_code == 403
 
 
+def test_locked_state_is_not_disclosed_without_the_password(
+    client: TestClient, make_user: Callable[..., User], login
+) -> None:
+    # Trip the lockout with wrong passwords, then confirm that an attacker who
+    # still doesn't have the password gets the same generic 401 as any bad
+    # login — the locked status is not leaked (no enumeration oracle).
+    make_user("stealthlock")
+    for _ in range(settings.max_failed_logins):
+        assert login(client, "stealthlock", "wrong").status_code == 401
+    locked = login(client, "stealthlock", "still-wrong")
+    unknown = login(client, "ghost-user", "whatever")
+    assert locked.status_code == unknown.status_code == 401
+    assert locked.json()["detail"] == unknown.json()["detail"]
+
+
+def test_disabled_state_is_not_disclosed_without_the_password(
+    client: TestClient, make_user: Callable[..., User], login
+) -> None:
+    # A disabled account only reveals "disabled" (403) once the correct password
+    # proves ownership; a wrong password yields the generic 401 like any other.
+    make_user("benched", is_active=False)
+    wrong = login(client, "benched", "wrong-password")
+    assert wrong.status_code == 401
+    right = login(client, "benched", "Recruit123!")
+    assert right.status_code == 403
+
+
 def test_change_password_flow(
     client: TestClient, make_user: Callable[..., User], login
 ) -> None:
