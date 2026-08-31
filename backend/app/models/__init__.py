@@ -1,4 +1,5 @@
 """ORM models for the AFROTC 695 backend."""
+from app.models.auth_attempt import AuthAttempt
 from app.models.auth_session import AuthSession
 from app.models.cadet import Cadet
 from app.models.contact import RecruitmentEvent, UniversityContact
@@ -20,6 +21,7 @@ from app.models.user import ActivityLog, PasswordHistory, User
 
 __all__ = [
     "ActivityLog",
+    "AuthAttempt",
     "AuthSession",
     "Cadet",
     "CadetStatus",

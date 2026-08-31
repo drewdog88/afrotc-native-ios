@@ -41,7 +41,7 @@ from app.schemas.auth import (
     UserOut,
 )
 from app.schemas.common import Message
-from app.services import otp, sessions, trusted_devices
+from app.services import otp, sessions, throttle, trusted_devices
 from app.services.activity import record_activity
 from app.services.email import send_2fa_code
 
@@ -124,6 +124,7 @@ def _record_login(db: Session, user: User, request: Request) -> None:
 def login(
     body: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)
 ) -> LoginResponse:
+    throttle.enforce(db, request, "login")
     user = _find_user(db, body.username)
     if user is None:
         raise _BAD_CREDS
@@ -316,7 +317,7 @@ def change_password(
 
 @router.post("/forgot-password", response_model=SecretQuestionOut)
 def forgot_password(
-    body: ForgotPasswordRequest, db: Session = Depends(get_db)
+    body: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)
 ) -> SecretQuestionOut:
     """Return the account's security question so the user can prove ownership.
 
@@ -324,6 +325,7 @@ def forgot_password(
     there is no email dependency. A disabled account is treated as not found so
     an administrator's deliberate deactivation can't be undone this way.
     """
+    throttle.enforce(db, request, "forgot-password")
     user = _find_user(db, body.username)
     if user is None or not user.is_active:
         raise HTTPException(
@@ -334,13 +336,16 @@ def forgot_password(
 
 
 @router.post("/reset-password", response_model=UserOut)
-def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)) -> User:
+def reset_password(
+    body: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)
+) -> User:
     """Reset a password after verifying the account's security answer.
 
     A correct answer also clears any failed-login lockout so the user can sign
     in immediately. Wrong answers count toward the same lockout as failed
     logins, so the question can't be brute-forced.
     """
+    throttle.enforce(db, request, "reset-password")
     user = _find_user(db, body.username)
     if user is None or not user.is_active:
         raise HTTPException(

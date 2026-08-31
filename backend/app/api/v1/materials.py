@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -33,6 +34,21 @@ def _secure_filename(filename: str) -> str:
     name = name.replace("/", "_")
     name = name.replace("\\", "_")
     return name or "unnamed"
+
+
+def _content_disposition(filename: str) -> str:
+    """Build a safe RFC 6266 Content-Disposition header for an attachment.
+
+    A raw filename reflected into ``filename="..."`` can carry a quote,
+    backslash, or control char that breaks header quoting (or, worse, injects a
+    header). We emit a quote-safe printable-ASCII fallback plus a UTF-8
+    ``filename*`` so non-ASCII names still round-trip in modern clients.
+    """
+    ascii_fallback = "".join(
+        c for c in filename if c.isascii() and c.isprintable() and c not in '"\\'
+    ) or "download"
+    utf8_name = quote(filename, safe="")
+    return f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{utf8_name}"
 
 
 def _get_link_or_404(db: Session, link_id: int) -> ExternalLink:
@@ -216,7 +232,7 @@ async def download_document(
     # Stream the file
     content_type = doc.file_type or "application/octet-stream"
     headers = {
-        "Content-Disposition": f'attachment; filename="{doc.original_filename}"'
+        "Content-Disposition": _content_disposition(doc.original_filename or "download")
     }
 
     def iter_bytes():
